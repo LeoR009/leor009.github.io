@@ -2,8 +2,9 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>WRONG WAY RUSH (2D / TPS / FPS)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#0b0b10">
+<title>WRONG WAY RUSH (Mobile)</title>
 <style>
   html,body{margin:0;height:100%;background:#0b0b10;color:#eee;font-family:sans-serif;overflow:hidden}
   #wrap{position:fixed;inset:0}
@@ -27,8 +28,36 @@
   #flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none}
   #vig{position:fixed;inset:0;pointer-events:none}
   #cutin{display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,720px);max-height:80vh;background:#000;border:3px solid #ff4d4d;box-shadow:0 0 40px #f00a;z-index:10;cursor:pointer}
-</style>
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
+  *{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+  html,body{touch-action:none;overscroll-behavior:none;position:fixed;width:100%}
+  :root{--sa-t:env(safe-area-inset-top,0px);--sa-b:env(safe-area-inset-bottom,0px);--sa-l:env(safe-area-inset-left,0px);--sa-r:env(safe-area-inset-right,0px)}
+  #ctl{position:fixed;left:0;right:0;bottom:calc(34px + var(--sa-b));display:flex;justify-content:space-between;align-items:flex-end;padding:0 calc(14px + var(--sa-l)) 0 calc(14px + var(--sa-r));pointer-events:none;z-index:7}
+  #ctl button{pointer-events:auto;touch-action:none;color:#fff;background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.55);font-weight:bold;backdrop-filter:blur(2px)}
+  #ctl button.on{background:rgba(255,77,77,.7);border-color:#ff4d4d}
+  #bUD{display:flex;flex-direction:column;gap:10px;pointer-events:none}
+  #bUD button{width:64px;height:64px;border-radius:50%;font-size:24px}
+  #bTurbo{width:92px;height:92px;border-radius:50%;font-size:16px;background:rgba(255,160,30,.25)!important}
+  #bTurbo.on{background:rgba(255,160,30,.8)!important}
+  @media (max-width:700px){
+    #hud .l{left:calc(10px + var(--sa-l));top:calc(48px + var(--sa-t))}
+    #hud .r{right:calc(10px + var(--sa-r));top:calc(48px + var(--sa-t))}
+    #hud b{font-size:18px}#hud span{font-size:12px}
+    #combo{top:calc(120px + var(--sa-t));font-size:22px}
+    #unlockMsg{top:calc(150px + var(--sa-t))!important;font-size:18px!important}
+    #panel{font-size:16px;padding:20px 8px}#panel h1{font-size:30px}
+    #views{top:calc(8px + var(--sa-t))}
+    #views button{font-size:14px;padding:9px 18px}
+    #info{font-size:10px;bottom:calc(4px + var(--sa-b));padding:0 6px}
+    #resetBest{font-size:11px;padding:6px 8px;bottom:calc(20px + var(--sa-b));right:50%;transform:translateX(50%);opacity:.6;display:none}
+    #carBtn{font-size:13px!important;padding:10px 12px!important;left:50%!important;transform:translateX(-50%);bottom:calc(140px + var(--sa-b))!important}
+  }
+  @media (orientation:landscape) and (max-height:500px){
+    #ctl{bottom:calc(14px + var(--sa-b))}#bUD{flex-direction:row}
+    #bUD button{width:52px;height:52px}#bTurbo{width:76px;height:76px}
+    #panel{padding:8px;font-size:13px}#panel h1{font-size:22px;margin:0}
+    #info{display:none}#combo{top:60px;font-size:18px}
+  }
+</style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
 </head>
 <body>
 <div id="wrap"><canvas id="c"></canvas><canvas id="c2d" width="480" height="720"></canvas></div>
@@ -41,7 +70,8 @@
   <div id="pops"></div>
   <div id="panel"></div>
 </div>
-<div id="info">V: 視点切替(2D/TPS/FPS) / ← → / A D: 左右 / ↑ ↓ / W S: 前後 / スペース: ターボ（3回・連続使用不可）/ スペース・クリック: スタート・リトライ（タッチ: 画面左右半分）</div>
+<div id="info">画面の左半分/右半分をタッチ: 左右移動 ／ ▲▼: 前後 ／ TURBO: ターボ ／ 上部ボタン: 視点切替</div>
+<div id="ctl"><div id="bUD"><button id="bUp">▲</button><button id="bDn">▼</button></div><button id="bTurbo">TURBO</button></div>
 <button id="resetBest">ハイスコアをリセット</button>
 <button id="carBtn" style="display:none;position:fixed;left:8px;bottom:8px;font-size:13px;padding:5px 10px;z-index:5"></button>
 <video id="cutin" src="movies/gyakusou.mp4" preload="auto" playsinline></video>
@@ -497,13 +527,13 @@ function render(){
     p.el.style.opacity=Math.min(1,p.life*2);
   }
   const btn=$('carBtn');btn.style.display=(unlocked&&state!=='play'&&!cutinOn)?'block':'none';
-  btn.textContent='車種: '+CARS[carType].name+' (Cキー)';
+  btn.textContent='車種: '+CARS[carType].name+'';
   const panel=$('panel');
   if(state==='title'||(state==='over'&&!cutinOn)){
     panel.style.display='block';
-    if(state==='title')panel.innerHTML=`<h1>WRONG WAY RUSH 3D</h1>対向車をよけ続けろ。速度は上がり続ける<br>ギリギリですれ違うとボーナス!<br>${Math.floor(t*2)%2===0?'<span class="go">SPACE / クリックでスタート</span>':'&nbsp;'}`;
-    else panel.innerHTML=`<h1>CRASH!</h1>SCORE ${Math.floor(score)}　NEAR MISS ${near}<br>BEST ${best}<br><span class="go">SPACE / クリックでスタート</span>`;
-  panel.innerHTML+='<br><small>'+(unlocked?`現在の車: ${CARS[carType].name}${carType?'（加速・旋回UP / ハイビーム / ターボ5回）':''}　Cキーで変更`:'SCORE 1000 で新車「PHANTOM X」解放!')+'</small>';
+    if(state==='title')panel.innerHTML=`<h1>WRONG WAY RUSH 3D</h1>対向車をよけ続けろ。速度は上がり続ける<br>ギリギリですれ違うとボーナス!<br>${Math.floor(t*2)%2===0?'<span class="go">タップでスタート</span>':'&nbsp;'}`;
+    else panel.innerHTML=`<h1>CRASH!</h1>SCORE ${Math.floor(score)}　NEAR MISS ${near}<br>BEST ${best}<br><span class="go">タップでスタート</span>`;
+  panel.innerHTML+='<br><small>'+(unlocked?`現在の車: ${CARS[carType].name}${carType?'（加速・旋回UP / ハイビーム / ターボ5回）':''}　ボタンで変更`:'SCORE 1000 で新車「PHANTOM X」解放!')+'</small>';
   }else panel.style.display='none';
   $('flash').style.opacity=flash>0.05?flash:0;
   $('vig').style.background=`radial-gradient(ellipse at center,rgba(0,0,0,0) 45%,rgba(120,0,0,${0.2+Math.min(1,speed/1000)*0.5}) 100%)`;
@@ -542,17 +572,41 @@ addEventListener('keydown',e=>{
 });
 addEventListener('keyup',e=>keys[e.key]=false);
 for(const el of[cv,c2d])el.addEventListener('mousedown',start);
+// mobile: steering by left/right half of the screen (multi-touch aware), on-screen buttons for turbo / forward / back
 function touch(e){
   e.preventDefault();
-  if(state!=='play'){start();touchDir=0;return;}
-  if(!e.touches.length){touchDir=0;return;}
-  touchDir=e.touches[0].clientX<innerWidth/2?-1:1;
+  if(state!=='play'){if(e.type==='touchstart')start();touchDir=0;return;}
+  let d=0;
+  for(const t of e.touches){
+    if(t.target!==cv&&t.target!==c2d)continue;
+    d=t.clientX<innerWidth/2?-1:1;
+  }
+  touchDir=d;
 }
 for(const el of[cv,c2d]){
   el.addEventListener('touchstart',touch,{passive:false});
   el.addEventListener('touchmove',touch,{passive:false});
   el.addEventListener('touchend',touch,{passive:false});
+  el.addEventListener('touchcancel',touch,{passive:false});
 }
+function holdBtn(id,down,up){
+  const el=$(id);
+  const on=e=>{e.preventDefault();e.stopPropagation();el.classList.add('on');down();};
+  const off=e=>{e.preventDefault();e.stopPropagation();el.classList.remove('on');up&&up();};
+  el.addEventListener('touchstart',on,{passive:false});
+  el.addEventListener('touchend',off,{passive:false});
+  el.addEventListener('touchcancel',off,{passive:false});
+  el.addEventListener('mousedown',on);
+  el.addEventListener('mouseup',off);
+  el.addEventListener('mouseleave',off);
+}
+holdBtn('bTurbo',()=>{if(state==='play')useTurbo();else start();});
+holdBtn('bUp',()=>{keys.ArrowUp=true;},()=>{keys.ArrowUp=false;});
+holdBtn('bDn',()=>{keys.ArrowDown=true;},()=>{keys.ArrowDown=false;});
+// stop pinch-zoom / double-tap zoom / pull-to-refresh
+for(const ev of['gesturestart','gesturechange','gestureend'])document.addEventListener(ev,e=>e.preventDefault());
+document.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
+document.addEventListener('visibilitychange',()=>{touchDir=0;keys.ArrowUp=keys.ArrowDown=false;});
 document.querySelectorAll('#views button').forEach(b=>b.addEventListener('click',e=>{e.currentTarget.blur();setView(b.dataset.v);}));
 setView(view);
 $('carBtn').addEventListener('click',e=>{e.currentTarget.blur();toggleCar();});
