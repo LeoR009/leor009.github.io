@@ -39,6 +39,19 @@
   #bUD button{width:64px;height:64px;border-radius:50%;font-size:24px}
   #bTurbo{width:92px;height:92px;border-radius:50%;font-size:16px;background:rgba(255,160,30,.25)!important}
   #bTurbo.on{background:rgba(255,160,30,.8)!important}
+  /* 車種切替・ランキング展開ボタンの配置 */
+  #subBtns{position:fixed;left:8px;bottom:8px;display:flex;gap:8px;z-index:8}
+  #subBtns button{font-size:13px;padding:6px 12px;border-radius:4px;cursor:pointer;border:1px solid #888;background:#222;color:#fff;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,.6)}
+  #rankBtn{background:#ff9f1c!important;color:#111!important;border-color:#ffe066!important}
+  /* 展開されるランキングモーダル */
+  #rankWrap{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:20;align-items:center;justify-content:center;padding:16px;pointer-events:auto}
+  #rankBox{width:min(90vw,340px);background:#181822;border:2px solid #ff9f1c;border-radius:8px;padding:14px 16px;font-size:14px;text-align:center;box-shadow:0 0 30px rgba(0,0,0,.9)}
+  #rankList{text-align:left;margin:10px 0;max-height:220px;overflow-y:auto;font-family:monospace;line-height:1.6;background:rgba(0,0,0,.4);padding:8px 10px;border-radius:4px}
+  #rankForm{margin-bottom:10px;display:flex;justify-content:center;gap:6px}
+  #rankForm input{width:130px;padding:6px 8px;font-size:14px;background:#222;color:#fff;border:1px solid #666;border-radius:4px;user-select:text;-webkit-user-select:text}
+  #rankForm button{padding:6px 12px;font-size:14px;background:#ff4d4d;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold}
+  #rankForm button:disabled{opacity:.5;cursor:default}
+  #closeRankBtn{margin-top:4px;padding:6px 20px;font-size:13px;background:#333;color:#eee;border:1px solid #666;border-radius:4px;cursor:pointer}
   @media (max-width:700px){
     #hud .l{left:calc(10px + var(--sa-l));top:calc(48px + var(--sa-t))}
     #hud .r{right:calc(10px + var(--sa-r));top:calc(48px + var(--sa-t))}
@@ -50,19 +63,16 @@
     #views button{font-size:14px;padding:9px 18px}
     #info{font-size:10px;bottom:calc(4px + var(--sa-b));padding:0 6px}
     #resetBest{font-size:11px;padding:6px 8px;bottom:calc(20px + var(--sa-b));right:50%;transform:translateX(50%);opacity:.6;display:none}
-    #carBtn{font-size:13px!important;padding:10px 12px!important;left:50%!important;transform:translateX(-50%);bottom:calc(140px + var(--sa-b))!important}
+    #subBtns{left:50%;transform:translateX(-50%);bottom:calc(136px + var(--sa-b));white-space:nowrap}
+    #subBtns button{font-size:13px;padding:9px 12px}
   }
   @media (orientation:landscape) and (max-height:500px){
     #ctl{bottom:calc(14px + var(--sa-b))}#bUD{flex-direction:row}
     #bUD button{width:52px;height:52px}#bTurbo{width:76px;height:76px}
     #panel{padding:8px;font-size:13px}#panel h1{font-size:22px;margin:0}
     #info{display:none}#combo{top:60px;font-size:18px}
+    #subBtns{bottom:calc(14px + var(--sa-b));left:50%;transform:translateX(-50%)}
   }
-  #rankBox{margin-top:10px;font-size:14px;max-width:320px;margin-inline:auto;background:rgba(0,0,0,.5);padding:8px 12px;border-radius:6px;pointer-events:auto}
-  #rankList{text-align:left;margin:6px 0;max-height:150px;overflow-y:auto;font-family:monospace;line-height:1.4}
-  #rankForm input{width:110px;padding:4px 6px;font-size:14px;background:#222;color:#fff;border:1px solid #666;border-radius:4px;user-select:text;-webkit-user-select:text}
-  #rankForm button{padding:4px 10px;font-size:14px;background:#ff4d4d;color:#fff;border:none;border-radius:4px;cursor:pointer;margin-left:4px}
-  #rankForm button:disabled{opacity:.5;cursor:default}
 </style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
 </head>
 <body>
@@ -75,23 +85,26 @@
   <div id="combo"></div><div id="unlockMsg" style="position:absolute;left:0;right:0;top:160px;text-align:center;font:bold 24px sans-serif;color:#7CFC00"></div>
   <div id="pops"></div>
   <div id="panel"></div>
-    <!-- #panel のすぐ下に追加 -->
-  <div id="rankWrap" style="display:none;position:absolute;left:0;right:0;top:68%;text-align:center">
-    <div id="rankBox">
-      <div id="rankForm" style="display:none;margin-bottom:6px">
-        <input id="pName" type="text" maxlength="10" placeholder="名前(10文字)">
-        <button id="sendBtn">スコア登録</button>
-      </div>
-      <div style="color:#ffe066;font-weight:bold">🏆 ONLINE RANKING</div>
-      <div id="rankList">読み込み中...</div>
+</div>
+<!-- ボタンを押したときに展開されるランキング詳細モーダル -->
+<div id="rankWrap">
+  <div id="rankBox">
+    <div style="color:#ffe066;font-weight:bold;font-size:16px;margin-bottom:8px">🏆 ONLINE RANKING</div>
+    <div id="rankForm" style="display:none">
+      <input id="pName" type="text" maxlength="10" placeholder="名前(10文字)">
+      <button id="sendBtn">スコア登録</button>
     </div>
+    <div id="rankList">読み込み中...</div>
+    <button id="closeRankBtn">× 閉じる</button>
   </div>
-
 </div>
 <div id="info">画面の左半分/右半分をタッチ: 左右移動 ／ ▲▼: 前後 ／ TURBO: ターボ ／ 上部ボタン: 視点切替</div>
 <div id="ctl"><div id="bUD"><button id="bUp">▲</button><button id="bDn">▼</button></div><button id="bTurbo">TURBO</button></div>
 <button id="resetBest">ハイスコアをリセット</button>
-<button id="carBtn" style="display:none;position:fixed;left:8px;bottom:8px;font-size:13px;padding:5px 10px;z-index:5"></button>
+<div id="subBtns">
+  <button id="carBtn" style="display:none"></button>
+  <button id="rankBtn" style="display:none">🏆 ランキング</button>
+</div>
 <video id="cutin" preload="auto" playsinline></video>
 <script type="module">
 import * as THREE from 'three';
@@ -278,7 +291,9 @@ function toggleCar(){
 applyCar();
 
 // ===== game logic (ported) =====
+let rankOpen=false;
 function reset(){
+  rankOpen=false;rankWrap.style.display='none';
   player={x:laneX(2),y:H-150,vx:0,vy:0};
   for(const c of cars)scene.remove(c.mesh);
   cars=[];parts.forEach(p=>scene.remove(p.m));parts=[];parts2=[];$('pops').innerHTML='';popups=[];
@@ -372,7 +387,7 @@ function update(dt){
         state='over';boom(player.x,player.y);shake=25;flash=1;playCutin();
         playerMesh.visible=false;
         if(score>best){best=Math.floor(score);localStorage.setItem('wwr_best',best);}
-        rankForm.style.display='block';
+        rankForm.style.display='flex';
         sendBtn.disabled=false;sendBtn.textContent='スコア登録';
         fetchRanks();
       }
@@ -546,16 +561,18 @@ function render(){
     }
     p.el.style.opacity=Math.min(1,p.life*2);
   }
-  const btn=$('carBtn');btn.style.display=(unlocked&&state!=='play'&&!cutinOn)?'block':'none';
-  btn.textContent='車種: '+CARS[carType].name+'';
+  const btn=$('carBtn'),rBtn=$('rankBtn');
+  btn.style.display=(unlocked&&state!=='play'&&!cutinOn)?'block':'none';
+  btn.textContent='車種: '+CARS[carType].name;
+  rBtn.style.display=(state!=='play'&&!cutinOn)?'block':'none';
+  rBtn.textContent=state==='over'?'🏆 ランキング / 登録':'🏆 ランキング';
   const panel=$('panel');
   if(state==='title'||(state==='over'&&!cutinOn)){
     panel.style.display='block';
     if(state==='title')panel.innerHTML=`<h1>WRONG WAY RUSH 3D</h1>対向車をよけ続けろ。速度は上がり続ける<br>ギリギリですれ違うとボーナス!<br>${Math.floor(t*2)%2===0?'<span class="go">タップでスタート</span>':'&nbsp;'}`;
-  else panel.innerHTML=`<h1>CRASH!</h1>SCORE ${Math.floor(score)}　NEAR MISS ${near}<br>BEST ${best}<br><span class="go">タップでスタート</span>`;
-  panel.innerHTML+='<br><small>'+(unlocked?`現在の車: ${CARS[carType].name}${carType?'（加速・旋回UP / ハイビーム / ターボ5回）':''}　ボタンで変更`:'SCORE 1000 で新車「PHANTOM X」解放!')+'</small>';
+    else panel.innerHTML=`<h1>CRASH!</h1>SCORE ${Math.floor(score)} NEAR MISS ${near}<br>BEST ${best}<br><span class="go">タップでスタート</span>`;
+    panel.innerHTML+='<br><small>'+(unlocked?`現在の車: ${CARS[carType].name}${carType?'（加速・旋回UP / ハイビーム / ターボ5回）':''} ボタンで変更`:'SCORE 1000 で新車「PHANTOM X」解放!')+'</small>';
   }else panel.style.display='none';
-  rankWrap.style.display=(state==='over'&&!cutinOn)?'block':'none';
   $('flash').style.opacity=flash>0.05?flash:0;
   $('vig').style.background=`radial-gradient(ellipse at center,rgba(0,0,0,0) 45%,rgba(120,0,0,${0.2+Math.min(1,speed/1000)*0.5}) 100%)`;
 }
@@ -571,7 +588,7 @@ function loop(now){
 const cutin=$('cutin');
 let cutinOn=false,cutinTimer=null,videoWarmed=false;
 
-// WebM対応ブラウザなら gyakuosu.webm を優先、非対応または取得失敗時は mp4 にフォールバック
+// WebM対応ブラウザなら gyakusou.webm を優先、非対応または取得失敗時は mp4 にフォールバック
 const canWebm=cutin.canPlayType('video/webm')!=='';
 const videoList=canWebm?['movies/gyakusou.webm','movies/gyakusou.mp4']:['movies/gyakusou.mp4','movies/gyakusou.webm'];
 
@@ -586,7 +603,6 @@ async function preloadVideo(){
       return;
     }catch(e){}
   }
-  // ローカル直接起動(file://)等でfetchがブロックされた場合のフォールバック
   cutin.src=videoList[0];
   cutin.load();
 }
@@ -628,10 +644,12 @@ cutin.addEventListener('ended',endCutin);
 cutin.addEventListener('error',endCutin);
 cutin.addEventListener('click',endCutin);
 function start(){
+  if(rankOpen)return;
   if(cutinOn){endCutin();return;}
   if(state!=='play'){warmupVideo();reset();}
 }
 addEventListener('keydown',e=>{
+  if(rankOpen){if(e.key==='Escape')closeRank();return;}
   keys[e.key]=true;
   if(e.key==='c'||e.key==='C')toggleCar();
   if(e.key==='v'||e.key==='V')setView(VIEWS[(VIEWS.indexOf(view)+1)%VIEWS.length]);
@@ -682,16 +700,35 @@ $('carBtn').addEventListener('click',e=>{e.currentTarget.blur();toggleCar();});$
   e.currentTarget.blur();
   if(confirm('ハイスコアをリセットしますか？')){best=0;localStorage.removeItem('wwr_best');}
 });
-requestAnimationFrame(loop);
+
 // ===== online ranking =====
-const RANK_API = 'https://script.google.com/macros/s/AKfycbwKLzHyLJAYaqw7Qa3L6NfD_cSbA1yfHzQ1SPCaM7n8U_VY9rBR1ShQXQB-5UD9ZQgj/exec';
-const rankWrap = $('rankWrap'), rankList = $('rankList'), rankForm =$('rankForm');
-const pName = $('pName'), sendBtn =$('sendBtn');
+const RANK_API = 'https://script.google.com/macros/s/AKfycbxf9284g5-r31g5lc0V1voot9DlbKbqqrVAn-5-667D9g6UXh8yqd_7a9w0dcDSciEv/exec';
+const rankWrap = $('rankWrap'), rankBox =$('rankBox'), rankList = $('rankList'), rankForm =$('rankForm');
+const pName = $('pName'), sendBtn =$('sendBtn'), rankBtn = $('rankBtn'), closeRankBtn =$('closeRankBtn');
 pName.value = localStorage.getItem('wwr_name') || '';
 
-// 入力欄やボタンを押したときにゲームが誤スタートしないようにする
-rankWrap.addEventListener('mousedown', e => e.stopPropagation());
-rankWrap.addEventListener('touchstart', e => e.stopPropagation(), {passive: false});
+function openRank() {
+  if (state === 'play' || cutinOn) return;
+  rankOpen = true;
+  if (state !== 'over') rankForm.style.display = 'none';
+  rankWrap.style.display = 'flex';
+  fetchRanks();
+}
+function closeRank() {
+  rankOpen = false;
+  rankWrap.style.display = 'none';
+  pName.blur();
+}
+
+rankBtn.addEventListener('click', e => { e.stopPropagation(); e.currentTarget.blur(); openRank(); });
+closeRankBtn.addEventListener('click', e => { e.stopPropagation(); closeRank(); });
+// モーダルの外側（黒い背景）をタップしたときも閉じる
+rankWrap.addEventListener('click', e => { if (e.target === rankWrap) closeRank(); });
+
+// 入力欄やモーダル操作時に裏のゲームが誤作動・スクロール禁止にならないようにする
+rankBox.addEventListener('mousedown', e => e.stopPropagation());
+rankBox.addEventListener('touchstart', e => e.stopPropagation(), {passive: true});
+rankWrap.addEventListener('touchmove', e => e.stopPropagation(), {passive: true});
 pName.addEventListener('keydown', e => e.stopPropagation());
 
 function renderRanks(list) {
@@ -729,6 +766,8 @@ sendBtn.addEventListener('click', async () => {
     sendBtn.disabled = false;
   }
 });
+
+requestAnimationFrame(loop);
 </script>
 </body>
 </html>
