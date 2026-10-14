@@ -27,7 +27,8 @@
   #views button.on{background:#ff4d4d;color:#fff;border-color:#ff4d4d}
   #flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none}
   #vig{position:fixed;inset:0;pointer-events:none}
-  #cutin{display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,720px);max-height:80vh;background:#000;border:3px solid #ff4d4d;box-shadow:0 0 40px #f00a;z-index:10;cursor:pointer}
+  #cutin{opacity:0;pointer-events:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,720px);max-height:80vh;background:#000;border:3px solid #ff4d4d;box-shadow:0 0 40px #f00a;z-index:10;cursor:pointer}
+  #cutin.on{opacity:1;pointer-events:auto}
   *{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
   html,body{touch-action:none;overscroll-behavior:none;position:fixed;width:100%}
   :root{--sa-t:env(safe-area-inset-top,0px);--sa-b:env(safe-area-inset-bottom,0px);--sa-l:env(safe-area-inset-left,0px);--sa-r:env(safe-area-inset-right,0px)}
@@ -74,7 +75,7 @@
 <div id="ctl"><div id="bUD"><button id="bUp">▲</button><button id="bDn">▼</button></div><button id="bTurbo">TURBO</button></div>
 <button id="resetBest">ハイスコアをリセット</button>
 <button id="carBtn" style="display:none;position:fixed;left:8px;bottom:8px;font-size:13px;padding:5px 10px;z-index:5"></button>
-<video id="cutin" src="movies/gyakusou.mp4" preload="auto" playsinline></video>
+<video id="cutin" preload="auto" playsinline></video>
 <script type="module">
 import * as THREE from 'three';
 
@@ -272,7 +273,7 @@ function reset(){
 player={x:laneX(2),y:H-150,vx:0,vy:0};
 const COLORS=[0xe63946,0xf1c40f,0x3498db,0x2ecc71,0x9b59b6,0xecf0f1,0xe67e22,0x1abc9c];
 function addObj(o){
-  const c=Object.assign({y:SPAWN_Y,own:0,passed:false,kind:'car',chase:false},o);
+  const c=Object.assign({y:SPAWN_Y,own:0,passed:false,chase:false,kind:'car'},o);
   let m;
   if(c.kind==='car'){m=buildCar(c.w,c.h,c.col);m.rotation.y=Math.PI;}
   else if(c.kind==='truck'){m=buildTruck(c.w,c.h,0xc9ced8);m.rotation.y=Math.PI;}
@@ -514,8 +515,7 @@ function render(){
   $('kmh').textContent=`${Math.floor(speed*(1+BOOST_K*boost)*0.6)} km/h`;
   $('near').textContent=`NEAR ${near}`;
   $('turbo').textContent='TURBO '+'●'.repeat(charges)+'○'.repeat(MAXC-charges)+(boostT>0?' BOOST!':cdT>0?' COOL':'');
-  $('unlockMsg').textContent=unlockT>0?'NEW CAR UNLOCKED: PHANTOM X !':'';
-  $('combo').textContent=combo>1&&state==='play'?`COMBO x${combo}`:'';
+  $('unlockMsg').textContent=unlockT>0?'NEW CAR UNLOCKED: PHANTOM X !':'';$('combo').textContent=combo>1&&state==='play'?`COMBO x${combo}`:'';
   for(const p of popups){
     if(view==='2d'){
       const r=c2d.getBoundingClientRect();
@@ -548,19 +548,67 @@ function loop(now){
 
 // ===== cut-in video & input =====
 const cutin=$('cutin');
-let cutinOn=false,cutinTimer=null;
+let cutinOn=false,cutinTimer=null,videoWarmed=false;
+
+// WebM対応ブラウザなら gyakuosu.webm を優先、非対応または取得失敗時は mp4 にフォールバック
+const canWebm=cutin.canPlayType('video/webm')!=='';
+const videoList=canWebm?['movies/gyakusou.webm','movies/gyakusou.mp4']:['movies/gyakusou.mp4','movies/gyakusou.webm'];
+
+async function preloadVideo(){
+  for(const url of videoList){
+    try{
+      const r=await fetch(url);
+      if(!r.ok)continue;
+      const blob=await r.blob();
+      cutin.src=URL.createObjectURL(blob);
+      cutin.load();
+      return;
+    }catch(e){}
+  }
+  // ローカル直接起動(file://)等でfetchがブロックされた場合のフォールバック
+  cutin.src=videoList[0];
+  cutin.load();
+}
+preloadVideo();
+
+// 初回スタート時のユーザー操作イベント内でデコーダ起動＆音声ロック解除を行う
+function warmupVideo(){
+  if(videoWarmed||!cutin.src)return;
+  videoWarmed=true;
+  const prevMuted=cutin.muted;
+  cutin.muted=true;
+  const p=cutin.play();
+  if(p!==undefined){
+    p.then(()=>{
+      if(!cutinOn){
+        cutin.pause();
+        cutin.currentTime=0;
+      }
+      cutin.muted=prevMuted;
+    }).catch(()=>{
+      cutin.muted=prevMuted;
+    });
+  }
+}
+
 function playCutin(){
   cutinOn=true;clearTimeout(cutinTimer);
-  cutin.style.display='block';cutin.currentTime=0;
+  cutin.currentTime=0;
+  cutin.classList.add('on');
   cutin.play().catch(()=>{cutin.muted=true;cutin.play().catch(endCutin);});
 }
-function endCutin(){cutinOn=false;clearTimeout(cutinTimer);cutin.pause();cutin.style.display='none';}
+function endCutin(){
+  cutinOn=false;clearTimeout(cutinTimer);
+  cutin.pause();
+  cutin.classList.remove('on');
+  if(cutin.readyState>=2)cutin.currentTime=0;
+}
 cutin.addEventListener('ended',endCutin);
 cutin.addEventListener('error',endCutin);
 cutin.addEventListener('click',endCutin);
 function start(){
   if(cutinOn){endCutin();return;}
-  if(state!=='play')reset();
+  if(state!=='play'){warmupVideo();reset();}
 }
 addEventListener('keydown',e=>{
   keys[e.key]=true;
@@ -609,8 +657,7 @@ document.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
 document.addEventListener('visibilitychange',()=>{touchDir=0;keys.ArrowUp=keys.ArrowDown=false;});
 document.querySelectorAll('#views button').forEach(b=>b.addEventListener('click',e=>{e.currentTarget.blur();setView(b.dataset.v);}));
 setView(view);
-$('carBtn').addEventListener('click',e=>{e.currentTarget.blur();toggleCar();});
-$('resetBest').addEventListener('click',e=>{
+$('carBtn').addEventListener('click',e=>{e.currentTarget.blur();toggleCar();});$('resetBest').addEventListener('click',e=>{
   e.currentTarget.blur();
   if(confirm('ハイスコアをリセットしますか？')){best=0;localStorage.removeItem('wwr_best');}
 });
