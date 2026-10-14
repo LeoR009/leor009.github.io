@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#0b0b10">
-<title>WRONG WAY RUSH (Mobile)</title>
+<title>WRONG WAY RUSH</title>
 <style>
   html,body{margin:0;height:100%;background:#0b0b10;color:#eee;font-family:sans-serif;overflow:hidden}
   #wrap{position:fixed;inset:0}
@@ -709,11 +709,11 @@ function render(){
   const panel=$('panel');
   if(state==='title'||(state==='over'&&!cutinOn)){
     panel.style.display='block';
-    if(state==='title')panel.innerHTML=`<h1>WRONG WAY RUSH 3D</h1>対向車をよけ続けろ。速度は上がり続ける<br>ギリギリですれ違うとボーナス!<br>${Math.floor(t*2)%2===0?'<span class="go">タップでスタート</span>':'&nbsp;'}`;
+    if(state==='title')panel.innerHTML=`<h1>WRONG WAY RUSH</h1>対向車をよけ続けろ。速度は上がり続ける<br>ギリギリですれ違うとボーナス!<br>${Math.floor(t*2)%2===0?'<span class="go">タップでスタート</span>':'&nbsp;'}`;
     else panel.innerHTML=`<h1>CRASH!</h1>SCORE ${Math.floor(score)} NEAR MISS ${near}<br>BEST ${best}<br><span class="go">タップでスタート</span>`;
     let subMsg='';
-    if(unlockLv===0)subMsg='SCORE 1000 で「PHANTOM X」、3000 で「TITAN TANK」解放!';
-    else if(unlockLv===1)subMsg=`現在の車: ${cur.name}${cur.desc} (SCORE 3000 で戦車解放!)`;
+    if(unlockLv===0)subMsg='SCORE 1000 で新車「PHANTOM X」解放!';
+    else if(unlockLv===1)subMsg=`現在の車: ${cur.name}${cur.desc} ボタンで変更`;
     else subMsg=`現在の車: ${cur.name}${cur.desc} ボタンで変更`;
     panel.innerHTML+='<br><small>'+subMsg+'</small>';
   }else panel.style.display='none';
