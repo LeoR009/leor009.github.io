@@ -384,35 +384,66 @@ function addObj(o){
   const c=Object.assign({y:SPAWN_Y,own:0,passed:false,chase:false,kind:'car'},o);
   let m;
   if(c.kind==='car'){m=buildCar(c.w,c.h,c.col);m.rotation.y=Math.PI;}
+  else if(c.kind==='sport'){m=buildSportsCar(c.w,c.h,c.col);m.rotation.y=Math.PI;}
   else if(c.kind==='truck'){m=buildTruck(c.w,c.h,0xc9ced8);m.rotation.y=Math.PI;}
   else if(c.kind==='barrier')m=buildBarrier(c.w,c.h,1.0,false);
   else m=buildBarrier(c.w,c.h,.8,true);
   c.mesh=m;scene.add(m);cars.push(c);
 }
+// 【変更後】
 function spawnRow(){
   const blocked=new Array(LANES).fill(false);
+  // 出現位置付近にまだ前の車や障害物が残っているレーンを除外（出現時の重なり防止）
+  for(const c of cars){
+    if(c.y<SPAWN_Y+170){
+      for(let l=0;l<LANES;l++)if(Math.abs(c.x-laneX(l))<(c.w+LW)/2)blocked[l]=true;
+    }
+  }
   const r=Math.random(),lateGame=speed>260;
   if(r<0.16){
     const k=Math.random()*(LANES-1)|0;
-    addObj({kind:'truck',x:ROAD_L+LW*(k+1),w:LW*2-8,h:130,own:20+Math.random()*50});
-    blocked[k]=blocked[k+1]=true;
+    if(!blocked[k]&&!blocked[k+1]){
+      addObj({kind:'truck',x:ROAD_L+LW*(k+1),w:LW*2-8,h:130,own:20+Math.random()*40});
+      blocked[k]=blocked[k+1]=true;
+    }
   }else if(r<0.32){
     let bs=[1+(Math.random()*4|0)];
     if(Math.random()<0.35){const b2=bs[0]<=2?bs[0]+2:bs[0]-2;bs.push(b2);}
-    for(const b of bs){addObj({kind:'barrier',x:ROAD_L+LW*b,w:60,h:28,own:0});blocked[b-1]=blocked[b]=true;}
+    for(const b of bs){
+      if(!blocked[b-1]&&!blocked[b]){
+        addObj({kind:'barrier',x:ROAD_L+LW*b,w:60,h:28,own:0});
+        blocked[b-1]=blocked[b]=true;
+      }
+    }
   }else if(r<0.38){
     const k=Math.random()*(LANES-1)|0;
-    addObj({kind:'work',x:ROAD_L+LW*(k+1),w:LW*2-6,h:34,own:0});
-    blocked[k]=blocked[k+1]=true;
+    if(!blocked[k]&&!blocked[k+1]){
+      addObj({kind:'work',x:ROAD_L+LW*(k+1),w:LW*2-6,h:34,own:0});
+      blocked[k]=blocked[k+1]=true;
+    }
   }
   const free=[0,1,2,3,4].filter(l=>!blocked[l]).sort(()=>Math.random()-.5);
   const want=Math.random()<0.25?3:Math.random()<0.6?2:1;
   const n=Math.max(0,Math.min(want,free.length-1));
   for(let i=0;i<n;i++){
-    const l=free[i];
-    addObj({x:laneX(l)+(Math.random()-.5)*28,w:44,h:CH+Math.random()*10,
-      own:60+Math.random()*100,col:COLORS[Math.random()*COLORS.length|0],
-      chase:lateGame&&Math.random()<0.3});
+    const l=free[i],lx=laneX(l);
+    // その車線の前方が空いているかチェック（前の車に詰まって減速するのを防ぐため）
+    const laneClear=!cars.some(c=>Math.abs(c.x-lx)<LW*0.7);
+    // 前方がクリア ＆ 5%の確率で超高速スポーツカーを出現させる
+    if(laneClear&&Math.random()<0.05){
+      const sCols=[0xffc400,0xff1744,0x00e5ff,0xd500f9]; // スポーツカー専用の派手な色
+      addObj({kind:'sport',x:lx,w:38,h:CH,
+        own:1000+Math.random()*140,
+        col:sCols[Math.random()*sCols.length|0],
+        chase:false}); // まっすぐ猛スピードで突っ込んでくる
+    }else{
+      // 通常の車（遅い車: 25〜55 / 普通: 80〜140 / 速い車: 190〜280）
+      const sr=Math.random();
+      const ownSpd=sr<0.3?25+Math.random()*30:sr<0.75?80+Math.random()*60:190+Math.random()*90;
+      addObj({x:lx+(Math.random()-.5)*20,w:44,h:CH+Math.random()*10,
+        own:ownSpd,col:COLORS[Math.random()*COLORS.length|0],
+        chase:lateGame&&Math.random()<0.3});
+    }
   }
 }
 const partGeo=new THREE.BoxGeometry(1,1,1);
@@ -492,10 +523,26 @@ function update(dt){
   shells=shells.filter(s=>{if(s.alive)return true;scene.remove(s.m);return false;});
   cars=cars.filter(c=>!c.dead);
 
+  // 【変更後】
   for(const c of cars){
     c.y+=(speed*(1+BOOST_K*boost)+c.own)*dt;
+    // 1. ふらつく車の横移動（移動先に他の車・障害物がない場合のみ移動）
     if(c.chase&&state==='play'&&c.y<player.y-140){
-      const d=player.x-c.x;c.x+=Math.max(-1,Math.min(1,d/20))*55*dt;
+      const d=player.x-c.x;
+      const nx=Math.max(ROAD_L+c.w/2+4,Math.min(ROAD_L+ROAD_W-c.w/2-4,c.x+Math.max(-1,Math.min(1,d/20))*55*dt));
+      const hitX=cars.some(o=>o!==c&&!o.dead&&Math.abs(nx-o.x)<(c.w+o.w)/2+10&&Math.abs(c.y-o.y)<(c.h+o.h)/2+14);
+      if(!hitX)c.x=nx;
+    }
+    // 2. 速度差による縦方向の追突防止（前方に遅い車や障害物があれば減速して車間維持）
+    if(c.own>0){
+      for(const o of cars){
+        if(o===c||o.dead||o.y<=c.y)continue;
+        const minY=(c.h+o.h)/2+20;
+        if(Math.abs(c.x-o.x)<(c.w+o.w)/2+6&&o.y-c.y<minY){
+          c.y=o.y-minY;
+          if(c.own>o.own)c.own=o.own;
+        }
+      }
     }
     if(state==='play'){
       const dx=Math.abs(c.x-player.x),dy=Math.abs(c.y-player.y);
@@ -592,7 +639,11 @@ function tank2D(x,y,w,h,col){
   ctx.restore();
 }
 function obj2D(c){
-  if(c.kind==='car'){car2D(c.x,c.y,c.w,c.h,hex(c.col),true,true);return;}
+  if(c.kind==='car'||c.kind==='sport'){
+    car2D(c.x,c.y,c.w,c.h,hex(c.col),true,true);
+    if(c.kind==='sport'){ctx.fillStyle='#111';ctx.fillRect(c.x-2,c.y-c.h*0.1,4,c.h*0.55);} // 2D用ストライプ
+    return;
+  }
   if(c.kind==='truck'){
     car2D(c.x,c.y,c.w,c.h,'#c9ced8',true,true);
     ctx.fillStyle='#d33';ctx.fillRect(c.x-c.w/2+4,c.y-c.h/2+4,c.w-8,10);
