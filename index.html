@@ -58,6 +58,11 @@
     #panel{padding:8px;font-size:13px}#panel h1{font-size:22px;margin:0}
     #info{display:none}#combo{top:60px;font-size:18px}
   }
+  #rankBox{margin-top:10px;font-size:14px;max-width:320px;margin-inline:auto;background:rgba(0,0,0,.5);padding:8px 12px;border-radius:6px;pointer-events:auto}
+  #rankList{text-align:left;margin:6px 0;max-height:150px;overflow-y:auto;font-family:monospace;line-height:1.4}
+  #rankForm input{width:110px;padding:4px 6px;font-size:14px;background:#222;color:#fff;border:1px solid #666;border-radius:4px;user-select:text;-webkit-user-select:text}
+  #rankForm button{padding:4px 10px;font-size:14px;background:#ff4d4d;color:#fff;border:none;border-radius:4px;cursor:pointer;margin-left:4px}
+  #rankForm button:disabled{opacity:.5;cursor:default}
 </style><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
 </head>
 <body>
@@ -70,6 +75,18 @@
   <div id="combo"></div><div id="unlockMsg" style="position:absolute;left:0;right:0;top:160px;text-align:center;font:bold 24px sans-serif;color:#7CFC00"></div>
   <div id="pops"></div>
   <div id="panel"></div>
+    <!-- #panel のすぐ下に追加 -->
+  <div id="rankWrap" style="display:none;position:absolute;left:0;right:0;top:68%;text-align:center">
+    <div id="rankBox">
+      <div id="rankForm" style="display:none;margin-bottom:6px">
+        <input id="pName" type="text" maxlength="10" placeholder="名前(10文字)">
+        <button id="sendBtn">スコア登録</button>
+      </div>
+      <div style="color:#ffe066;font-weight:bold">🏆 ONLINE RANKING</div>
+      <div id="rankList">読み込み中...</div>
+    </div>
+  </div>
+
 </div>
 <div id="info">画面の左半分/右半分をタッチ: 左右移動 ／ ▲▼: 前後 ／ TURBO: ターボ ／ 上部ボタン: 視点切替</div>
 <div id="ctl"><div id="bUD"><button id="bUp">▲</button><button id="bDn">▼</button></div><button id="bTurbo">TURBO</button></div>
@@ -355,6 +372,9 @@ function update(dt){
         state='over';boom(player.x,player.y);shake=25;flash=1;playCutin();
         playerMesh.visible=false;
         if(score>best){best=Math.floor(score);localStorage.setItem('wwr_best',best);}
+        rankForm.style.display='block';
+        sendBtn.disabled=false;sendBtn.textContent='スコア登録';
+        fetchRanks();
       }
       if(!c.passed&&c.y>player.y){
         c.passed=true;
@@ -532,9 +552,10 @@ function render(){
   if(state==='title'||(state==='over'&&!cutinOn)){
     panel.style.display='block';
     if(state==='title')panel.innerHTML=`<h1>WRONG WAY RUSH 3D</h1>対向車をよけ続けろ。速度は上がり続ける<br>ギリギリですれ違うとボーナス!<br>${Math.floor(t*2)%2===0?'<span class="go">タップでスタート</span>':'&nbsp;'}`;
-    else panel.innerHTML=`<h1>CRASH!</h1>SCORE ${Math.floor(score)}　NEAR MISS ${near}<br>BEST ${best}<br><span class="go">タップでスタート</span>`;
+  else panel.innerHTML=`<h1>CRASH!</h1>SCORE ${Math.floor(score)}　NEAR MISS ${near}<br>BEST ${best}<br><span class="go">タップでスタート</span>`;
   panel.innerHTML+='<br><small>'+(unlocked?`現在の車: ${CARS[carType].name}${carType?'（加速・旋回UP / ハイビーム / ターボ5回）':''}　ボタンで変更`:'SCORE 1000 で新車「PHANTOM X」解放!')+'</small>';
   }else panel.style.display='none';
+  rankWrap.style.display=(state==='over'&&!cutinOn)?'block':'none';
   $('flash').style.opacity=flash>0.05?flash:0;
   $('vig').style.background=`radial-gradient(ellipse at center,rgba(0,0,0,0) 45%,rgba(120,0,0,${0.2+Math.min(1,speed/1000)*0.5}) 100%)`;
 }
@@ -662,6 +683,52 @@ $('carBtn').addEventListener('click',e=>{e.currentTarget.blur();toggleCar();});$
   if(confirm('ハイスコアをリセットしますか？')){best=0;localStorage.removeItem('wwr_best');}
 });
 requestAnimationFrame(loop);
+// ===== online ranking =====
+const RANK_API = 'https://script.google.com/macros/s/AKfycbxf9284g5-r31g5lc0V1voot9DlbKbqqrVAn-5-667D9g6UXh8yqd_7a9w0dcDSciEv/exec';
+const rankWrap = $('rankWrap'), rankList = $('rankList'), rankForm =$('rankForm');
+const pName = $('pName'), sendBtn =$('sendBtn');
+pName.value = localStorage.getItem('wwr_name') || '';
+
+// 入力欄やボタンを押したときにゲームが誤スタートしないようにする
+rankWrap.addEventListener('mousedown', e => e.stopPropagation());
+rankWrap.addEventListener('touchstart', e => e.stopPropagation(), {passive: false});
+pName.addEventListener('keydown', e => e.stopPropagation());
+
+function renderRanks(list) {
+  if (!list || !list.length) { rankList.innerHTML = 'まだ記録がありません'; return; }
+  rankList.innerHTML = list.map((r, i) =>
+    `<div>${String(i + 1).padStart(2, ' ')}. <b>${r.name.replace(/[<>&]/g, '')}</b> : ${r.score}</div>`
+  ).join('');
+}
+
+async function fetchRanks() {
+  if (!RANK_API.startsWith('http')) { rankList.innerHTML = 'URL未設定'; return; }
+  rankList.innerHTML = '読み込み中...';
+  try {
+    const res = await fetch(RANK_API);
+    renderRanks(await res.json());
+  } catch (e) {
+    rankList.innerHTML = '取得失敗';
+  }
+}
+
+sendBtn.addEventListener('click', async () => {
+  const name = pName.value.trim() || 'NO NAME';
+  localStorage.setItem('wwr_name', name);
+  sendBtn.disabled = true;
+  sendBtn.textContent = '送信中...';
+  try {
+    const res = await fetch(RANK_API, {
+      method: 'POST',
+      body: JSON.stringify({ name, score: Math.floor(score), car: CARS[carType].name })
+    });
+    renderRanks(await res.json());
+    rankForm.style.display = 'none';
+  } catch (e) {
+    sendBtn.textContent = '再送信';
+    sendBtn.disabled = false;
+  }
+});
 </script>
 </body>
 </html>
