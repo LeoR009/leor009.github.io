@@ -117,7 +117,7 @@ const W=480,H=720,LANES=5,ROAD_L=40,ROAD_W=400,LW=ROAD_W/LANES;
 const CW=34,CH=60,S=1/20;               // S: game px -> 3D units
 const SPAWN_Y=-1000;
 const laneX=i=>ROAD_L+LW*(i+0.5);
-let state='title',player,cars=[],shells=[],parts=[],popups=[],speed=180,dist=0,score=0,near=0,combo=0,comboT=0,t=0,spawnT=0,shake=0,flash=0;
+let state='title',player,cars=[],shells=[],parts=[],popups=[],speed=180,dist=0,score=0,_sc=0,near=0,combo=0,comboT=0,t=0,spawnT=0,shake=0,flash=0;
 let best=+localStorage.getItem('wwr_best')||0;
 const keys={};let touchDir=0;
 const CARS=[
@@ -381,7 +381,7 @@ function reset(){
   for(const c of cars)scene.remove(c.mesh);
   for(const s of shells)scene.remove(s.m);
   cars=[];shells=[];parts.forEach(p=>scene.remove(p.m));parts=[];parts2=[];$('pops').innerHTML='';popups=[];
-  speed=180;dist=0;score=0;near=0;combo=0;comboT=0;t=0;spawnT=0;shake=0;
+  speed=180;dist=0;score=0;_sc=0;near=0;combo=0;comboT=0;t=0;spawnT=0;shake=0;
   playerMesh.visible=true;
   MAXC=CARS[carType].maxc;charges=MAXC;boostT=0;cdT=0;rechT=0;boost=0;
   applyCar();
@@ -505,7 +505,11 @@ function update(dt){
     comboT-=dt;if(comboT<=0)combo=0;
     spawnT-=dt;
     if(spawnT<=0){spawnRow();spawnT=Math.max(0.28,(420/(speed*(1+BOOST_K*boost)+90)))*(0.8+Math.random()*0.5);}
-    score+=speed*(1+BOOST_K*boost)*dt*0.05;
+    // 改ざん検知：表のスコアと裏のスコアにズレがあれば0にリセット
+    if(Math.abs(score-_sc)>1){score=0;_sc=0;}
+    const addS=speed*(1+BOOST_K*boost)*dt*0.05;
+    score+=addS;_sc+=addS;
+
     if(unlockLv<1&&score>=1000){unlockLv=1;localStorage.setItem('wwr_unlock','1');unlockText='NEW CAR UNLOCKED: PHANTOM X !';unlockT=4;}
     if(unlockLv<2&&score>=3000){unlockLv=2;localStorage.setItem('wwr_unlock','2');unlockText='NEW CAR UNLOCKED: TITAN TANK !';unlockT=4;}
   }
@@ -574,7 +578,7 @@ function update(dt){
         if(gap<14){
           combo++;comboT=2.2;near++;
           const bonus=Math.floor((14-gap)*10+50)*combo;
-          score+=bonus;
+          score+=bonus;_sc+=bonus;
           const el=document.createElement('div');el.className='pop';
           el.textContent=`NEAR MISS +${bonus}`+(combo>1?` x${combo}`:'');
           $('pops').appendChild(el);
@@ -987,15 +991,29 @@ async function fetchRanks() {
   }
 }
 
+// 署名生成関数
+function makeSig(name, s, d, n, tSec) {
+  const str = `${name}_${s}_${d}_${n}_${tSec}_NKTIDKSG_SECRET_10`;
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}
+
 sendBtn.addEventListener('click', async () => {
+  if (Math.abs(score - _sc) > 1) { alert('不正なスコアが検知されました'); return; }
   const name = pName.value.trim() || 'NO NAME';
   localStorage.setItem('wwr_name', name);
   sendBtn.disabled = true;
   sendBtn.textContent = '送信中...';
+  const s = Math.floor(score), d = Math.floor(dist), n = near, tSec = Math.floor(t);
+  const sig = makeSig(name, s, d, n, tSec);
   try {
     const res = await fetch(RANK_API, {
       method: 'POST',
-      body: JSON.stringify({ name, score: Math.floor(score), car: CARS[carType].name })
+      body: JSON.stringify({ name, score: s, dist: d, near: n, time: tSec, car: CARS[carType].name, sig })
     });
     renderRanks(await res.json());
     rankForm.style.display = 'none';
@@ -1004,6 +1022,7 @@ sendBtn.addEventListener('click', async () => {
     sendBtn.disabled = false;
   }
 });
+
 
 requestAnimationFrame(loop);
 </script>
