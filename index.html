@@ -477,17 +477,15 @@ function update(dt){
       if(c.dead)continue;
       if(Math.abs(c.x-s.x)<c.w/2+16&&Math.abs(c.y-s.y)<c.h/2+18){
         s.alive=false;
+		playHitSe();
         shake=Math.max(shake,16);flash=Math.max(flash,0.35);
-        let hitCar=false;
         // 着弾点の障害物および隣接する障害物をまとめて爆散させる
         for(const c2 of cars){
           if(!c2.dead&&Math.abs(c2.x-c.x)<75&&Math.abs(c2.y-c.y)<95){
-            if(c2.kind==='car'||c2.kind==='truck')hitCar=true; // 車・トラックが含まれているか判定
             c2.dead=true;boom(c2.x,c2.y);scene.remove(c2.mesh);
           }
         }
-        // 鳴らし分け（通常の爆発音に重ねて特別なSEも鳴らす場合は、両方呼ぶ形でもOKです）
-        playHitSe();
+        break;
       }
     }
   }
