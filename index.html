@@ -149,7 +149,6 @@ const bgms=[
 ];
 const fireSe=preloadAudio('sounds/se/tank-cannon.mp3');
 const hitSe=preloadAudio('sounds/se/big-explosion.mp3');
-const carHitSe=preloadAudio('sounds/se/scream.mp3');
 
 function playBgm(){
   bgms.forEach(a=>a.pause());
@@ -165,10 +164,6 @@ function playFireSe(){
 function playHitSe(){
   hitSe.currentTime=0;
   hitSe.play().catch(()=>{});
-}
-function playCarHitSe(){
-  carHitSe.currentTime=0;
-  carHitSe.play().catch(()=>{});
 }
 
 // ===== three.js setup =====
@@ -493,8 +488,6 @@ function update(dt){
         }
         // 鳴らし分け（通常の爆発音に重ねて特別なSEも鳴らす場合は、両方呼ぶ形でもOKです）
         playHitSe();
-        if(hitCar)playCarHitSe();
-        break;
       }
     }
   }
@@ -778,7 +771,7 @@ function warmupVideo(){
   // 音声(SE・待機BGM)のデコーダ起動＆スマホでの再生ロック解除
   if(!audioWarmed){
     audioWarmed=true;
-    for(const a of [fireSe,hitSe,carHitSe,...bgms.filter((_,i)=>i!==carType)]){
+    for(const a of [fireSe,hitSe,...bgms.filter((_,i)=>i!==carType)]){
       if(!a.src)continue;
       a.muted=true;
       const pa=a.play();
