@@ -52,6 +52,8 @@
   #rankForm button{padding:6px 12px;font-size:14px;background:#ff4d4d;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold}
   #rankForm button:disabled{opacity:.5;cursor:default}
   #closeRankBtn{margin-top:4px;padding:6px 20px;font-size:13px;background:#333;color:#eee;border:1px solid #666;border-radius:4px;cursor:pointer}
+  #loadBarWrap{width:240px;height:12px;background:#222;border:1px solid #888;border-radius:6px;margin:10px auto 4px;overflow:hidden}
+  #loadBar{width:0%;height:100%;background:linear-gradient(90deg,#ff4d4d,#ff9f1c);transition:width .15s}
   @media (max-width:700px){
     #hud .l{left:calc(10px + var(--sa-l));top:calc(48px + var(--sa-t))}
     #hud .r{right:calc(10px + var(--sa-r));top:calc(48px + var(--sa-t))}
@@ -131,6 +133,13 @@ let charges=3,boostT=0,cdT=0,rechT=0,boost=0;const BOOST_DUR=2,BOOST_CD=4,RECH=1
 const $=id=>document.getElementById(id);
 
 // ===== BGM & SE setup (Blob事前ロード・メモリ保持) =====
+const TOTAL_ASSETS=6; // BGM 3曲 + SE 2個 + 動画 1個
+let loadedAssets=0,assetsReady=false;
+function onAssetLoaded(){
+  loadedAssets++;
+  if(loadedAssets>=TOTAL_ASSETS)assetsReady=true;
+}
+
 function preloadAudio(url, loop=false){
   const a=new Audio();
   a.loop=loop;
@@ -138,7 +147,8 @@ function preloadAudio(url, loop=false){
   fetch(url)
     .then(r=>{if(!r.ok)throw new Error();return r.blob();})
     .then(blob=>{a.src=URL.createObjectURL(blob);a.load();})
-    .catch(()=>{a.src=url;a.load();}); // ローカル直接起動(file://)用フォールバック
+    .catch(()=>{a.src=url;a.load();}) // ローカル直接起動(file://)用フォールバック
+    .finally(onAssetLoaded);
   return a;
 }
 
@@ -768,7 +778,13 @@ function render(){
   const panel=$('panel');
   if(state==='title'||(state==='over'&&!cutinOn)){
     panel.style.display='block';
-    if(state==='title')panel.innerHTML=`<h1>WRONG WAY RUSH</h1>対向車をよけ続けろ。速度は上がり続ける<br>ギリギリですれ違うとボーナス!<br>${Math.floor(t*2)%2===0?'<span class="go">タップでスタート</span>':'&nbsp;'}`;
+    if(state==='title'){
+      const pct=Math.min(100,Math.floor(loadedAssets/TOTAL_ASSETS*100));
+      const statusHtml=!assetsReady
+        ?`<div id="loadBarWrap"><div id="loadBar" style="width:${pct}%"></div></div><span style="font-size:15px;color:#ffe066">LOADING... ${pct}%</span>`
+        :(Math.floor(t*2)%2===0?'<span class="go">タップでスタート</span>':'&nbsp;');
+      panel.innerHTML=`<h1>WRONG WAY RUSH</h1>対向車をよけ続けろ。速度は上がり続ける<br>ギリギリですれ違うとボーナス!<br>${statusHtml}`;
+    }
     else panel.innerHTML=`<h1>CRASH!</h1>SCORE ${Math.floor(score)} NEAR MISS ${near}<br>BEST ${best}<br><span class="go">タップでスタート</span>`;
     let subMsg='';
     if(unlockLv===0)subMsg='SCORE 1000 で新車「PHANTOM X」解放!';
@@ -806,11 +822,13 @@ async function preloadVideo(){
       const blob=await r.blob();
       cutin.src=URL.createObjectURL(blob);
       cutin.load();
+      onAssetLoaded();
       return;
     }catch(e){}
   }
   cutin.src=videoList[0];
   cutin.load();
+  onAssetLoaded();
 }
 preloadVideo();
 
@@ -864,7 +882,7 @@ cutin.addEventListener('ended',endCutin);
 cutin.addEventListener('error',endCutin);
 cutin.addEventListener('click',endCutin);
 function start(){
-  if(rankOpen)return;
+  if(!assetsReady||rankOpen)return;
   if(cutinOn){endCutin();return;}
   if(state!=='play'){warmupVideo();reset();}
 }
