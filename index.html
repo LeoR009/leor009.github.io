@@ -130,13 +130,27 @@ let MAXC=CARS[carType].maxc;
 let charges=3,boostT=0,cdT=0,rechT=0,boost=0;const BOOST_DUR=2,BOOST_CD=4,RECH=12,BOOST_K=0.5;
 const $=id=>document.getElementById(id);
 
-// ===== BGM setup =====
+// ===== BGM & SE setup (Blob事前ロード・メモリ保持) =====
+function preloadAudio(url, loop=false){
+  const a=new Audio();
+  a.loop=loop;
+  a.preload='auto';
+  fetch(url)
+    .then(r=>{if(!r.ok)throw new Error();return r.blob();})
+    .then(blob=>{a.src=URL.createObjectURL(blob);a.load();})
+    .catch(()=>{a.src=url;a.load();}); // ローカル直接起動(file://)用フォールバック
+  return a;
+}
+
 const bgms=[
-  new Audio('sounds/bgm/ariake_euro.mp3'),
-  new Audio('sounds/bgm/tensui_euro.mp3'),
-  new Audio('sounds/bgm/shingun.mp3')
+  preloadAudio('sounds/bgm/ariake_euro.mp3', true),
+  preloadAudio('sounds/bgm/tensui_euro.mp3', true),
+  preloadAudio('sounds/bgm/shingun.mp3', true)
 ];
-bgms.forEach(a=>{a.loop=true;a.preload='auto';});
+const fireSe=preloadAudio('sounds/se/tank-cannon.mp3');
+const hitSe=preloadAudio('sounds/se/big-explosion.mp3');
+const carHitSe=preloadAudio('sounds/se/scream.mp3');
+
 function playBgm(){
   bgms.forEach(a=>a.pause());
   const b=bgms[carType]||bgms[1];
@@ -144,18 +158,17 @@ function playBgm(){
 }
 function stopBgm(){bgms.forEach(a=>a.pause());}
 
-const fireSe = new Audio('sounds/se/tank-cannon.mp3');
-fireSe.preload = 'auto';
 function playFireSe(){
-  fireSe.currentTime = 0;
+  fireSe.currentTime=0;
   fireSe.play().catch(()=>{});
 }
-
-const hitSe = new Audio('sounds/se/big-explosion.mp3');
-hitSe.preload = 'auto';
 function playHitSe(){
-  hitSe.currentTime = 0;
+  hitSe.currentTime=0;
   hitSe.play().catch(()=>{});
+}
+function playCarHitSe(){
+  carHitSe.currentTime=0;
+  carHitSe.play().catch(()=>{});
 }
 
 // ===== three.js setup =====
@@ -469,14 +482,18 @@ function update(dt){
       if(c.dead)continue;
       if(Math.abs(c.x-s.x)<c.w/2+16&&Math.abs(c.y-s.y)<c.h/2+18){
         s.alive=false;
-		playHitSe();
         shake=Math.max(shake,16);flash=Math.max(flash,0.35);
+        let hitCar=false;
         // 着弾点の障害物および隣接する障害物をまとめて爆散させる
         for(const c2 of cars){
           if(!c2.dead&&Math.abs(c2.x-c.x)<75&&Math.abs(c2.y-c.y)<95){
+            if(c2.kind==='car'||c2.kind==='truck')hitCar=true; // 車・トラックが含まれているか判定
             c2.dead=true;boom(c2.x,c2.y);scene.remove(c2.mesh);
           }
         }
+        // 鳴らし分け（通常の爆発音に重ねて特別なSEも鳴らす場合は、両方呼ぶ形でもOKです）
+        playHitSe();
+        if(hitCar)playCarHitSe();
         break;
       }
     }
@@ -756,7 +773,21 @@ async function preloadVideo(){
 preloadVideo();
 
 // 初回スタート時のユーザー操作イベント内でデコーダ起動＆音声ロック解除を行う
+let audioWarmed=false;
 function warmupVideo(){
+  // 音声(SE・待機BGM)のデコーダ起動＆スマホでの再生ロック解除
+  if(!audioWarmed){
+    audioWarmed=true;
+    for(const a of [fireSe,hitSe,carHitSe,...bgms.filter((_,i)=>i!==carType)]){
+      if(!a.src)continue;
+      a.muted=true;
+      const pa=a.play();
+      if(pa!==undefined){
+        pa.then(()=>{a.pause();a.currentTime=0;a.muted=false;}).catch(()=>{a.muted=false;});
+      }
+    }
+  }
+  // カットイン動画のウォームアップ
   if(videoWarmed||!cutin.src)return;
   videoWarmed=true;
   const prevMuted=cutin.muted;
