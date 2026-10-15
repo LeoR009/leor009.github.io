@@ -14,6 +14,10 @@
   #hud .r{position:absolute;right:14px;top:44px;text-align:right}
   #hud b{font-size:22px;display:block}
   #hud span{font-size:14px}
+  #brakeHud{display:none;margin-top:4px;text-align:right}
+  #brakeLabel{font-size:12px!important;display:block;margin-bottom:2px}
+  #brakeBarBg{width:110px;height:8px;background:rgba(255,255,255,.2);border:1px solid #aaa;border-radius:4px;overflow:hidden;margin-left:auto}
+  #brakeBar{width:0%;height:100%;background:#00e5ff}
   #combo{position:absolute;left:0;right:0;top:110px;text-align:center;font:bold 28px sans-serif;color:#ff9f1c}
   .pop{position:absolute;transform:translate(-50%,-50%);color:#ffe066;font:bold 18px sans-serif;white-space:nowrap}
   #panel{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;background:rgba(0,0,0,.65);padding:26px 10px;font-size:20px;line-height:1.6}
@@ -37,7 +41,10 @@
   #ctl button.on{background:rgba(255,77,77,.7);border-color:#ff4d4d}
   #bUD{display:flex;flex-direction:column;gap:10px;pointer-events:none}
   #bUD button{width:64px;height:64px;border-radius:50%;font-size:24px}
-  #bTurbo{width:92px;height:92px;border-radius:50%;font-size:16px;background:rgba(255,160,30,.25)!important}
+  #bAct{display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:none}
+  #bBrake{display:none;width:72px;height:44px;border-radius:22px;font-size:13px;background:rgba(255,60,60,.28)!important}
+  #bBrake.on{background:rgba(255,60,60,.85)!important}
+  #bTurbo{width:92px;height:92px;border-radius:50%;font-size:15px;background:rgba(255,160,30,.25)!important}
   #bTurbo.on{background:rgba(255,160,30,.8)!important}
   /* 車種切替・ランキング展開ボタンの配置 */
   #subBtns{position:fixed;left:8px;bottom:8px;display:flex;gap:8px;z-index:8}
@@ -56,6 +63,7 @@
     #hud .l{left:calc(10px + var(--sa-l));top:calc(48px + var(--sa-t))}
     #hud .r{right:calc(10px + var(--sa-r));top:calc(48px + var(--sa-t))}
     #hud b{font-size:18px}#hud span{font-size:12px}
+    #brakeBarBg{width:90px;height:7px}
     #combo{top:calc(120px + var(--sa-t));font-size:22px}
     #unlockMsg{top:calc(150px + var(--sa-t))!important;font-size:18px!important}
     #panel{font-size:16px;padding:20px 8px}#panel h1{font-size:30px}
@@ -67,7 +75,7 @@
     #subBtns button{font-size:13px;padding:9px 12px}
   }
   @media (orientation:landscape) and (max-height:500px){
-    #ctl{bottom:calc(14px + var(--sa-b))}#bUD{flex-direction:row}
+    #ctl{bottom:calc(14px + var(--sa-b))}#bUD,#bAct{flex-direction:row}
     #bUD button{width:52px;height:52px}#bTurbo{width:76px;height:76px}
     #panel{padding:8px;font-size:13px}#panel h1{font-size:22px;margin:0}
     #info{display:none}#combo{top:60px;font-size:18px}
@@ -82,7 +90,10 @@
 <div id="vig"></div><div id="flash"></div>
 <div id="hud">
   <div class="l"><b id="score">SCORE 0</b><span id="best">BEST 0</span></div>
-  <div class="r"><b id="kmh">0 km/h</b><span id="near">NEAR 0</span><br><span id="turbo"></span></div>
+  <div class="r">
+    <b id="kmh">0 km/h</b><span id="near">NEAR 0</span><br><span id="turbo"></span>
+    <div id="brakeHud"><span id="brakeLabel">BRAKE 0.0 / 3.0s</span><div id="brakeBarBg"><div id="brakeBar"></div></div></div>
+  </div>
   <div id="combo"></div><div id="unlockMsg" style="position:absolute;left:0;right:0;top:160px;text-align:center;font:bold 24px sans-serif;color:#7CFC00"></div>
   <div id="pops"></div>
   <div id="panel"></div>
@@ -99,8 +110,11 @@
     <button id="closeRankBtn">× 閉じる</button>
   </div>
 </div>
-<div id="info">画面の左半分/右半分をタッチ: 左右移動 ／ ▲▼: 前後 ／ TURBO: ターボ・主砲 ／ 上部ボタン: 視点切替</div>
-<div id="ctl"><div id="bUD"><button id="bUp">▲</button><button id="bDn">▼</button></div><button id="bTurbo">TURBO</button></div>
+<div id="info">左右タッチ/AD: 移動 ／ ▲▼/WS: 前後 ／ Space: ターボ・主砲・ウィリー ／ Shift: ブレーキ(バイク)</div>
+<div id="ctl">
+  <div id="bUD"><button id="bUp">▲</button><button id="bDn">▼</button></div>
+  <div id="bAct"><button id="bBrake">BRAKE</button><button id="bTurbo">TURBO</button></div>
+</div>
 <button id="resetBest">ハイスコアをリセット</button>
 <div id="subBtns">
   <button id="carBtn" style="display:none"></button>
@@ -117,14 +131,16 @@ const SPAWN_Y=-1000;
 const laneX=i=>ROAD_L+LW*(i+0.5);
 let state='title',player,cars=[],shells=[],parts=[],popups=[],speed=180,dist=0,score=0,near=0,combo=0,comboT=0,t=0,spawnT=0,shake=0,flash=0;
 let best=+localStorage.getItem('wwr_best')||0;
-const keys={};let touchDir=0;
+const keys={};let touchDir=0,brakeHold=false,pitch=0,brakeHist=[],brakeUsed=0,vaporLock=false;
+const BRAKE_WINDOW=10,BRAKE_LIMIT=2;     // 過去10秒間のうち上限2秒を超過するとベーパーロック発生
 const CARS=[
-  {name:'STANDARD',col:0x00e5ff,acc:1,steer:1,maxc:3,beam:false,tank:false,w:34,h:60,desc:''},
-  {name:'PHANTOM X',col:0xffc400,acc:1.5,steer:1.35,maxc:5,beam:true,tank:false,w:34,h:60,desc:'（加速・旋回UP / ハイビーム / ターボ5回）'}, // unlocked at score 1000
-  {name:'TITAN TANK',col:0x6b8e23,acc:1,steer:1.35,maxc:5,beam:false,tank:true,w:62,h:95,desc:'（旋回UP / 大型 / 主砲5発で前方を爆破・15秒で1発補給）'}    // unlocked at score 3000
+  {name:'STANDARD',col:0x00e5ff,acc:1,steer:1,maxc:3,beam:false,tank:false,bike:false,w:34,h:60,desc:''},
+  {name:'PHANTOM X',col:0xffc400,acc:1.5,steer:1.35,maxc:5,beam:true,tank:false,bike:false,w:34,h:60,desc:'（加速・旋回UP / ハイビーム / ターボ5回）'}, // unlocked at score 1000
+  {name:'TITAN TANK',col:0x6b8e23,acc:1,steer:1.35,maxc:5,beam:false,tank:true,bike:false,w:62,h:95,desc:'（旋回UP / 大型 / 主砲5発で前方を爆破）'},    // unlocked at score 3000
+  {name:'NIGHT BIKE',col:0xff1744,acc:1.7,steer:1.35,maxc:3,beam:true,tank:false,bike:true,w:16,h:48,desc:'（高加速・スリム / 2レーン狭角ハイビーム / ウィリー / Shift:ブレーキ旋回）'} // unlocked at score 4000
 ];
 let savedUnlock=+localStorage.getItem('wwr_unlock')||0;
-let unlockLv=Math.max(savedUnlock,best>=3000?2:best>=1000?1:0);
+let unlockLv=Math.max(savedUnlock,best>=4000?3:best>=3000?2:best>=1000?1:0);
 let carType=Math.min(+localStorage.getItem('wwr_car')||0,unlockLv),unlockT=0,unlockText='';
 let MAXC=CARS[carType].maxc;
 let charges=3,boostT=0,cdT=0,rechT=0,boost=0;const BOOST_DUR=2,BOOST_CD=4,RECH=12,BOOST_K=0.5;
@@ -145,7 +161,8 @@ function preloadAudio(url, loop=false){
 const bgms=[
   preloadAudio('sounds/bgm/ariake_euro.mp3', true),
   preloadAudio('sounds/bgm/tensui_euro.mp3', true),
-  preloadAudio('sounds/bgm/shingun.mp3', true)
+  preloadAudio('sounds/bgm/shingun.mp3', true),
+  preloadAudio('sounds/bgm/zero_defects.mp3', true)
 ];
 const fireSe=preloadAudio('sounds/se/tank-cannon.mp3');
 const hitSe=preloadAudio('sounds/se/big-explosion.mp3');
@@ -179,7 +196,8 @@ const camera=new THREE.PerspectiveCamera(65,1,0.1,200);
 function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
 addEventListener('resize',resize);resize();
 
-scene.add(new THREE.HemisphereLight(0x8899cc,0x222233,1.0));
+const hemi=new THREE.HemisphereLight(0x8899cc,0x222233,1.0);
+scene.add(hemi);
 const sun=new THREE.DirectionalLight(0xffffff,1.0);
 sun.position.set(-8,20,10);sun.castShadow=true;
 sun.shadow.camera.left=-20;sun.shadow.camera.right=20;sun.shadow.camera.top=30;sun.shadow.camera.bottom=-30;
@@ -337,8 +355,32 @@ function buildTank(w,h,col){
   }
   return g;
 }
-const stdModel=buildCar(CW,CH,CARS[0].col),sportModel=buildSportsCar(CW,CH,CARS[1].col),tankModel=buildTank(CARS[2].w,CARS[2].h,CARS[2].col);
-const playerMesh=new THREE.Group();playerMesh.add(stdModel,sportModel,tankModel);
+function buildBike(w,h,col){
+  const g=new THREE.Group(),W3=w*S,L=h*S;
+  const body=stdMat(col,{roughness:.25,metalness:.55});
+  const suit=stdMat(0x1b1b22,{roughness:.6,metalness:.2});
+  const metal=stdMat(0x888899,{roughness:.3,metalness:.8});
+  const bWheel=new THREE.CylinderGeometry(.38,.38,.22,14);bWheel.rotateZ(Math.PI/2);
+  // 前後タイヤ
+  add(g,bWheel,wheelMat,0,.38,-L*.36);
+  add(g,bWheel,wheelMat,0,.38,L*.36);
+  // メインフレーム・タンク・フロントカウル
+  add(g,new THREE.BoxGeometry(W3*.52,.42,L*.62),body,0,.68,0);
+  const cowl=add(g,new THREE.BoxGeometry(W3*.56,.42,L*.36),body,0,.82,-L*.28);cowl.rotation.x=.42;
+  const screen=add(g,new THREE.BoxGeometry(W3*.46,.22,L*.24),glass,0,1.02,-L*.24);screen.rotation.x=.55;
+  // フロントフォーク＆ハンドル
+  const fork=add(g,new THREE.BoxGeometry(W3*.6,.08,.55),metal,0,.62,-L*.31);fork.rotation.x=-.95;
+  add(g,new THREE.BoxGeometry(W3*1.15,.07,.08),metal,0,.98,-L*.18);
+  // ライダー（前傾姿勢の胴体＋ヘルメット）
+  const torso=add(g,new THREE.BoxGeometry(W3*.64,.48,L*.38),suit,0,1.12,L*.08);torso.rotation.x=.52;
+  add(g,new THREE.SphereGeometry(.23,12,10),body,0,1.42,-L*.05);
+  // 単眼ヘッドライト＆テールランプ
+  add(g,new THREE.BoxGeometry(.26,.16,.1),lampMat,0,.82,-L*.46);
+  add(g,new THREE.BoxGeometry(.22,.14,.1),tailMat,0,.78,L*.36);
+  return g;
+}
+const stdModel=buildCar(CW,CH,CARS[0].col),sportModel=buildSportsCar(CW,CH,CARS[1].col),tankModel=buildTank(CARS[2].w,CARS[2].h,CARS[2].col),bikeModel=buildBike(CARS[3].w,CARS[3].h,CARS[3].col);
+const playerMesh=new THREE.Group();playerMesh.add(stdModel,sportModel,tankModel,bikeModel);
 scene.add(playerMesh);
 // headlight cone for the player
 const head=new THREE.SpotLight(0xfff4c0,60,60,0.5,0.6,1.2);
@@ -349,10 +391,22 @@ function applyCar(){
   stdModel.visible=carType===0;
   sportModel.visible=carType===1;
   tankModel.visible=carType===2;
-  head.intensity=c.beam?200:60;head.distance=c.beam?160:60;head.angle=c.beam?0.4:0.5;
-  head.target.position.z=c.beam?-70:-20;
-  scene.fog.near=c.beam?60:30;scene.fog.far=c.beam?175:95;
-  $('bTurbo').textContent=c.tank?'FIRE':'TURBO';
+  bikeModel.visible=carType===3;
+  if(c.bike){
+    // バイク：周囲の視野を狭くし、前方約2レーン幅(約8ユニット)に絞った狭角ハイビームを照射
+    hemi.intensity=0.35;sun.intensity=0.4;
+    head.intensity=240;head.distance=165;head.angle=0.16;head.penumbra=0.25;
+    head.target.position.z=-65;
+    scene.fog.near=45;scene.fog.far=155;
+  }else{
+    hemi.intensity=1.0;sun.intensity=1.0;
+    head.intensity=c.beam?200:60;head.distance=c.beam?160:60;head.angle=c.beam?0.4:0.5;head.penumbra=0.6;
+    head.target.position.z=c.beam?-70:-20;
+    scene.fog.near=c.beam?60:30;scene.fog.far=c.beam?175:95;
+  }
+  $('bTurbo').textContent=c.tank?'FIRE':c.bike?'WHEELIE':'TURBO';
+  $('bBrake').style.display=c.bike?'block':'none';
+  $('brakeHud').style.display=c.bike?'block':'none';
 }
 function toggleCar(){
   if(unlockLv===0||state==='play'||cutinOn)return;
@@ -371,7 +425,9 @@ function reset(){
   for(const c of cars)scene.remove(c.mesh);
   for(const s of shells)scene.remove(s.m);
   cars=[];shells=[];parts.forEach(p=>scene.remove(p.m));parts=[];parts2=[];$('pops').innerHTML='';popups=[];
-  speed=180;dist=0;score=0;near=0;combo=0;comboT=0;t=0;spawnT=0;shake=0;
+  speed=180;dist=0;score=0;near=0;combo=0;comboT=0;t=0;spawnT=0;shake=0;pitch=0;
+  brakeHist=[];brakeUsed=0;vaporLock=false;
+  $('bBrake').textContent='BRAKE';$('bBrake').style.opacity='1';
   playerMesh.visible=true;
   MAXC=CARS[carType].maxc;charges=MAXC;boostT=0;cdT=0;rechT=0;boost=0;
   applyCar();
@@ -390,7 +446,6 @@ function addObj(o){
   else m=buildBarrier(c.w,c.h,.8,true);
   c.mesh=m;scene.add(m);cars.push(c);
 }
-// 【変更後】
 function spawnRow(){
   const blocked=new Array(LANES).fill(false);
   // 出現位置付近にまだ前の車や障害物が残っているレーンを除外（出現時の重なり防止）
@@ -479,15 +534,43 @@ function useTurbo(){
 function update(dt){
   t+=dt;
   const curCar=CARS[carType],pw=curCar.w,ph=curCar.h;
-  boost+=((boostT>0?1:0)-boost)*Math.min(1,dt*5);
+  const wantBrake=curCar.bike&&(keys.Shift||keys.ShiftLeft||keys.ShiftRight||brakeHold);
+  const braking=wantBrake&&!vaporLock; // ベーパーロック発生後はそのプレイ中ブレーキ無効
+  // 【変更後】毎フレーム常に増減し続ける方式
+  if(state==='play'&&curCar.bike&&!vaporLock){
+    if(braking){
+      brakeUsed+=dt; // 踏んでいる間は1秒あたり1.0増える（2秒で上限）
+    }else{
+      // 離した瞬間から常に減り続ける（BRAKE_WINDOW秒かけて上限から0まで回復）
+      brakeUsed=Math.max(0,brakeUsed-(BRAKE_LIMIT/BRAKE_WINDOW)*dt);
+    }
+    if(brakeUsed>=BRAKE_LIMIT){
+      vaporLock=true;
+      brakeUsed=BRAKE_LIMIT;
+      $('bBrake').textContent='LOCK!';
+      $('bBrake').style.opacity='0.4';
+    }
+  }
+  if(braking&&boostT>0)boostT=0; // ハンドブレーキ時はウィリー解除
+  const wheelie=curCar.bike&&boostT>0;
+  // バイクのウィリーはベース速度自体を上げるため、一時倍率のboostは0にする
+  boost+=(((!curCar.bike&&boostT>0)?1:0)-boost)*Math.min(1,dt*5);
+  pitch+=((wheelie?0.42:0)-pitch)*Math.min(1,dt*8);
   if(state==='play'){
-    speed+=(28+speed*0.035)*curCar.acc*dt;
+    if(braking){
+      speed=Math.max(0,speed-220*dt); // ハンドブレーキ中：速度(v>=0)が減衰
+    }else{
+      speed+=(28+speed*0.035)*curCar.acc*dt;
+      if(wheelie)speed+=115*dt;       // ウィリー中：ベース速度自体が加速し、使用後も減衰しない
+    }
     if(unlockT>0)unlockT-=dt;if(boostT>0)boostT-=dt;if(cdT>0)cdT-=dt;
     if(charges<MAXC){rechT+=dt;if(rechT>=RECH){rechT=0;charges++;}}else rechT=0;
     const kx=(keys.ArrowRight||keys.d||keys.D?1:0)-(keys.ArrowLeft||keys.a||keys.A?1:0)+touchDir;
     const ky=(keys.ArrowDown||keys.s||keys.S?1:0)-(keys.ArrowUp||keys.w||keys.W?1:0);
-    const steer=(260+speed*0.25)*curCar.steer;
-    player.vx+=(kx*steer-player.vx)*Math.min(1,dt*9*curCar.steer);
+    // ウィリー中は旋回性能がSTANDARD(1.0)の1/2(0.5)に低下、ハンドブレーキ中は2.1に向上
+    const steerMul=wheelie?0.5:(braking?2.1:curCar.steer);
+    const steer=(260+speed*0.25)*steerMul;
+    player.vx+=(kx*steer-player.vx)*Math.min(1,dt*9*steerMul);
     player.vy+=(ky*180-player.vy)*Math.min(1,dt*6);
     player.x=Math.max(ROAD_L+pw/2+2,Math.min(ROAD_L+ROAD_W-pw/2-2,player.x+player.vx*dt));
     player.y=Math.max(H*0.35,Math.min(H-90,player.y+player.vy*dt));
@@ -498,6 +581,7 @@ function update(dt){
     score+=speed*(1+BOOST_K*boost)*dt*0.05;
     if(unlockLv<1&&score>=1000){unlockLv=1;localStorage.setItem('wwr_unlock','1');unlockText='NEW CAR UNLOCKED: PHANTOM X !';unlockT=4;}
     if(unlockLv<2&&score>=3000){unlockLv=2;localStorage.setItem('wwr_unlock','2');unlockText='NEW CAR UNLOCKED: TITAN TANK !';unlockT=4;}
+    if(unlockLv<3&&score>=4000){unlockLv=3;localStorage.setItem('wwr_unlock','3');unlockText='NEW MACHINE UNLOCKED: NIGHT BIKE !';unlockT=4;}
   }
   // 戦車の砲弾移動と障害物爆破判定
   for(const s of shells){
@@ -508,7 +592,7 @@ function update(dt){
       if(c.dead)continue;
       if(Math.abs(c.x-s.x)<c.w/2+16&&Math.abs(c.y-s.y)<c.h/2+18){
         s.alive=false;
-		playHitSe();
+        playHitSe();
         shake=Math.max(shake,16);flash=Math.max(flash,0.35);
         // 着弾点の障害物および隣接する障害物をまとめて爆散させる
         for(const c2 of cars){
@@ -523,7 +607,6 @@ function update(dt){
   shells=shells.filter(s=>{if(s.alive)return true;scene.remove(s.m);return false;});
   cars=cars.filter(c=>!c.dead);
 
-  // 【変更後】
   for(const c of cars){
     c.y+=(speed*(1+BOOST_K*boost)+c.own)*dt;
     // 1. ふらつく車の横移動（移動先に他の車・障害物がない場合のみ移動）
@@ -551,7 +634,8 @@ function update(dt){
         playerMesh.visible=false;
         if(score>best){
           best=Math.floor(score);localStorage.setItem('wwr_best',best);
-          if(best>=3000&&unlockLv<2){unlockLv=2;localStorage.setItem('wwr_unlock','2');}
+          if(best>=4000&&unlockLv<3){unlockLv=3;localStorage.setItem('wwr_unlock','3');}
+          else if(best>=3000&&unlockLv<2){unlockLv=2;localStorage.setItem('wwr_unlock','2');}
           else if(best>=1000&&unlockLv<1){unlockLv=1;localStorage.setItem('wwr_unlock','1');}
         }
         rankForm.style.display='flex';
@@ -638,6 +722,32 @@ function tank2D(x,y,w,h,col){
   ctx.fillStyle='#333';ctx.fillRect(-3,-h/2-18,6,h*0.45);
   ctx.restore();
 }
+function bike2D(x,y,w,h,col,wheelie){
+  // 前方2レーン幅(LW*2 = 160px)に付与される狭角ハイビーム
+  const beamHalf=LW; // 中心から左右1レーンずつ＝合計2レーン幅
+  const g=ctx.createLinearGradient(0,y-h/2,0,y-h/2-340);
+  g.addColorStop(0,'rgba(255,250,200,.32)');g.addColorStop(1,'rgba(255,250,200,0)');
+  ctx.fillStyle=g;ctx.beginPath();
+  ctx.moveTo(x-w/2,y-h/2);ctx.lineTo(x+w/2,y-h/2);
+  ctx.lineTo(x+beamHalf,y-h/2-340);ctx.lineTo(x-beamHalf,y-h/2-340);ctx.fill();
+
+  ctx.save();ctx.translate(x,y);
+  if(wheelie)ctx.scale(1,0.86); // ウィリー中は車体が起き上がる表現
+  ctx.fillStyle='rgba(0,0,0,.35)';ctx.fillRect(-w/2+2,-h/2+3,w,h);
+  // 前後タイヤ・ハンドル
+  ctx.fillStyle='#111';
+  ctx.fillRect(-3,-h/2-3,6,11);ctx.fillRect(-3,h/2-8,6,11);
+  ctx.strokeStyle='#999';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(-w*0.6,-h*0.22);ctx.lineTo(w*0.6,-h*0.22);ctx.stroke();
+  // カウル・ライダー
+  ctx.fillStyle=col;ctx.beginPath();ctx.roundRect(-w/2,-h/2+4,w,h-8,6);ctx.fill();
+  ctx.fillStyle='#1b1b22';ctx.beginPath();ctx.arc(0,4,w*0.38,0,7);ctx.fill();
+  ctx.fillStyle=col;ctx.beginPath();ctx.arc(0,-3,w*0.32,0,7);ctx.fill();
+  // ヘッドライト
+  ctx.fillStyle='#fff9c4';ctx.shadowColor='#fff9c4';ctx.shadowBlur=14;
+  ctx.fillRect(-3,-h/2+2,6,4);ctx.shadowBlur=0;
+  ctx.restore();
+}
 function obj2D(c){
   if(c.kind==='car'||c.kind==='sport'){
     car2D(c.x,c.y,c.w,c.h,hex(c.col),true,true);
@@ -682,6 +792,7 @@ function draw2D(){
   // fit canvas (480x720) to the window keeping aspect
   const sc=Math.min(innerWidth/W,innerHeight/H);
   c2d.style.width=W*sc+'px';c2d.style.height=H*sc+'px';
+  const cur=CARS[carType];
   ctx.save();
   ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);
   road2D();
@@ -689,14 +800,23 @@ function draw2D(){
   // 2D視点での砲弾描画
   ctx.fillStyle='#ffe066';
   for(const s of shells){ctx.beginPath();ctx.arc(s.x,s.y,5,0,7);ctx.fill();}
-  const cur=CARS[carType];
   if(state!=='over'){
     if(cur.tank)tank2D(player.x,player.y,cur.w,cur.h,hex(cur.col));
+    else if(cur.bike)bike2D(player.x,player.y,cur.w,cur.h,hex(cur.col),boostT>0);
     else car2D(player.x,player.y,cur.w,cur.h,hex(cur.col),false,true);
   }
   for(const p of parts2){ctx.globalAlpha=Math.min(1,p.life*2);ctx.fillStyle=p.c;ctx.fillRect(p.x,p.y,p.s,p.s);}
   ctx.globalAlpha=1;
   ctx.restore();
+  // バイク選択時は視野が狭くなる（自車中心の左右2レーン幅より外側が暗くなる）
+  if(cur.bike){
+    const lg=ctx.createLinearGradient(player.x-LW*1.5,0,player.x-LW*0.8,0);
+    lg.addColorStop(0,'rgba(0,0,0,0.68)');lg.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=lg;ctx.fillRect(0,0,W,H);
+    const rg=ctx.createLinearGradient(player.x+LW*0.8,0,player.x+LW*1.5,0);
+    rg.addColorStop(0,'rgba(0,0,0,0)');rg.addColorStop(1,'rgba(0,0,0,0.68)');
+    ctx.fillStyle=rg;ctx.fillRect(0,0,W,H);
+  }
   const k=Math.min(1,speed/1000);
   const g=ctx.createRadialGradient(W/2,H/2,H*0.35,W/2,H/2,H*0.75);
   g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,`rgba(120,0,0,${0.2+k*0.5})`);
@@ -706,11 +826,13 @@ function draw2D(){
 // ===== render sync =====
 const tmp=new THREE.Vector3();
 function render(){
+  const cur=CARS[carType];
   // player
   const px=gx(player.x),pz=gz(player.y);
   playerMesh.position.set(px,0,pz);
   playerMesh.rotation.y=-player.vx*0.0012;
-  playerMesh.rotation.z=-player.vx*0.0004;
+  playerMesh.rotation.z=-player.vx*(cur.bike?0.0011:0.0004); // バイクはバンク角（傾き）を大きく
+  bikeModel.rotation.x=pitch; // ウィリー時の前輪浮き上がり
   // road scrolling
   roadTex.offset.y=(dist/80)%1;
   for(const p of posts){p.m.position.z=30-POST_N*POST_GAP+((p.i*POST_GAP+dist*S)%(POST_N*POST_GAP));}
@@ -722,11 +844,12 @@ function render(){
     stdModel.visible=carType===0&&view!=='fps';
     sportModel.visible=carType===1&&view!=='fps';
     tankModel.visible=carType===2&&view!=='fps';
+    bikeModel.visible=carType===3&&view!=='fps';
     if(view==='fps'){
       camera.fov=70+k*25+boost*10;camera.updateProjectionMatrix();
-      camera.position.set(px+(Math.random()-.5)*shake*.03,1.25+(Math.random()-.5)*shake*.03,pz-0.2);
-      camera.lookAt(px+player.vx*0.004,1.2,pz-20);
-      camera.rotation.z+=-player.vx*0.0002;
+      camera.position.set(px+(Math.random()-.5)*shake*.03,1.25+pitch*0.4+(Math.random()-.5)*shake*.03,pz-0.2);
+      camera.lookAt(px+player.vx*0.004,1.2+pitch*3.5,pz-20);
+      camera.rotation.z+=-player.vx*(cur.bike?0.0006:0.0002);
     }else{
       camera.fov=62+k*22+boost*10;camera.updateProjectionMatrix();
       const cx=px*0.6;
@@ -738,13 +861,28 @@ function render(){
     renderer.render(scene,camera);
   }
   // HUD
-  const cur=CARS[carType];
   $('score').textContent=`SCORE ${Math.floor(score)}`;
   $('best').textContent=`BEST ${best}`;
   $('kmh').textContent=`${Math.floor(speed*(1+BOOST_K*boost)*0.6)} km/h`;
   $('near').textContent=`NEAR ${near}`;
   if(cur.tank){
     $('turbo').textContent='CANNON '+'●'.repeat(charges)+'○'.repeat(MAXC-charges);
+  }else if(cur.bike){
+    const wantBrake=keys.Shift||keys.ShiftLeft||keys.ShiftRight||brakeHold;
+    const braking=wantBrake&&!vaporLock;
+    $('turbo').textContent='WHEELIE '+'●'.repeat(charges)+'○'.repeat(MAXC-charges)+(boostT>0?' UP!':cdT>0?' COOL':'')+(braking?' [BRAKE]':'');
+    // ブレーキ使用量バーの動的更新（過去5秒間のうち2秒上限）
+    const ratio=Math.min(1,brakeUsed/BRAKE_LIMIT);
+    $('brakeBar').style.width=(ratio*100)+'%';
+    if(vaporLock){
+      $('brakeLabel').textContent='VAPOR LOCK! (ブレーキ故障)';
+      $('brakeLabel').style.color=Math.floor(t*8)%2===0?'#ff4d4d':'#ffe066';
+      $('brakeBar').style.background='#ff2222';
+    }else{
+      $('brakeLabel').textContent=`BRAKE ${brakeUsed.toFixed(1)} / 2.0s`;
+      $('brakeLabel').style.color=ratio>0.7?'#ff9f1c':'#eee';
+      $('brakeBar').style.background=ratio>0.75?'#ff4d4d':ratio>0.4?'#ff9f1c':'#00e5ff';
+    }
   }else{
     $('turbo').textContent='TURBO '+'●'.repeat(charges)+'○'.repeat(MAXC-charges)+(boostT>0?' BOOST!':cdT>0?' COOL':'');
   }
@@ -772,12 +910,13 @@ function render(){
     else panel.innerHTML=`<h1>CRASH!</h1>SCORE ${Math.floor(score)} NEAR MISS ${near}<br>BEST ${best}<br><span class="go">タップでスタート</span>`;
     let subMsg='';
     if(unlockLv===0)subMsg='SCORE 1000 で新車「PHANTOM X」解放!';
-    else if(unlockLv===1)subMsg=`現在の車: ${cur.name}${cur.desc} ボタンで変更`;
     else subMsg=`現在の車: ${cur.name}${cur.desc} ボタンで変更`;
     panel.innerHTML+='<br><small>'+subMsg+'</small>';
   }else panel.style.display='none';
   $('flash').style.opacity=flash>0.05?flash:0;
-  $('vig').style.background=`radial-gradient(ellipse at center,rgba(0,0,0,0) 45%,rgba(120,0,0,${0.2+Math.min(1,speed/1000)*0.5}) 100%)`;
+  $('vig').style.background=cur.bike
+    ?`radial-gradient(ellipse at center,rgba(0,0,0,0) 28%,rgba(10,0,0,${0.65+Math.min(1,speed/1000)*0.25}) 100%)`
+    :`radial-gradient(ellipse at center,rgba(0,0,0,0) 45%,rgba(120,0,0,${0.2+Math.min(1,speed/1000)*0.5}) 100%)`;
 }
 let last=performance.now();
 function loop(now){
@@ -870,14 +1009,14 @@ function start(){
 }
 addEventListener('keydown',e=>{
   if(rankOpen){if(e.key==='Escape')closeRank();return;}
-  keys[e.key]=true;
+  keys[e.key]=true;keys[e.code]=true;
   if(e.key==='c'||e.key==='C')toggleCar();
   if(e.key==='v'||e.key==='V')setView(VIEWS[(VIEWS.indexOf(view)+1)%VIEWS.length]);
   if(e.key===' '){e.preventDefault();if(state==='play'){if(!e.repeat)useTurbo();}else start();}
   else if(e.key==='Enter'){e.preventDefault();start();}
-  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault();
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Shift'].includes(e.key))e.preventDefault();
 });
-addEventListener('keyup',e=>keys[e.key]=false);
+addEventListener('keyup',e=>{keys[e.key]=false;keys[e.code]=false;});
 for(const el of[cv,c2d])el.addEventListener('mousedown',start);
 // mobile: steering by left/right half of the screen (multi-touch aware), on-screen buttons for turbo / forward / back
 function touch(e){
@@ -908,12 +1047,13 @@ function holdBtn(id,down,up){
   el.addEventListener('mouseleave',off);
 }
 holdBtn('bTurbo',()=>{if(state==='play')useTurbo();else start();});
+holdBtn('bBrake',()=>{brakeHold=true;},()=>{brakeHold=false;});
 holdBtn('bUp',()=>{keys.ArrowUp=true;},()=>{keys.ArrowUp=false;});
 holdBtn('bDn',()=>{keys.ArrowDown=true;},()=>{keys.ArrowDown=false;});
 // stop pinch-zoom / double-tap zoom / pull-to-refresh
 for(const ev of['gesturestart','gesturechange','gestureend'])document.addEventListener(ev,e=>e.preventDefault());
 document.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
-document.addEventListener('visibilitychange',()=>{touchDir=0;keys.ArrowUp=keys.ArrowDown=false;});
+document.addEventListener('visibilitychange',()=>{touchDir=0;brakeHold=false;keys.ArrowUp=keys.ArrowDown=keys.Shift=keys.ShiftLeft=keys.ShiftRight=false;});
 document.querySelectorAll('#views button').forEach(b=>b.addEventListener('click',e=>{e.currentTarget.blur();setView(b.dataset.v);}));
 setView(view);
 $('carBtn').addEventListener('click',e=>{e.currentTarget.blur();toggleCar();});$('resetBest').addEventListener('click',e=>{
