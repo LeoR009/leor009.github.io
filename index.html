@@ -59,6 +59,8 @@
   #rankForm button{padding:6px 12px;font-size:14px;background:#ff4d4d;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold}
   #rankForm button:disabled{opacity:.5;cursor:default}
   #closeRankBtn{margin-top:4px;padding:6px 20px;font-size:13px;background:#333;color:#eee;border:1px solid #666;border-radius:4px;cursor:pointer}
+  #loadBarWrap{width:240px;height:12px;background:#222;border:1px solid #888;border-radius:6px;margin:10px auto 4px;overflow:hidden}
+  #loadBar{width:0%;height:100%;background:linear-gradient(90deg,#ff4d4d,#ff9f1c);transition:width .15s}
   @media (max-width:700px){
     #hud .l{left:calc(10px + var(--sa-l));top:calc(48px + var(--sa-t))}
     #hud .r{right:calc(10px + var(--sa-r));top:calc(48px + var(--sa-t))}
@@ -129,7 +131,7 @@ const W=480,H=720,LANES=5,ROAD_L=40,ROAD_W=400,LW=ROAD_W/LANES;
 const CW=34,CH=60,S=1/20;               // S: game px -> 3D units
 const SPAWN_Y=-1000;
 const laneX=i=>ROAD_L+LW*(i+0.5);
-let state='title',player,cars=[],shells=[],parts=[],popups=[],speed=180,dist=0,score=0,near=0,combo=0,comboT=0,t=0,spawnT=0,shake=0,flash=0;
+let state='title',player,cars=[],shells=[],parts=[],popups=[],speed=180,dist=0,score=0,_sc=0,near=0,combo=0,comboT=0,t=0,spawnT=0,shake=0,flash=0;
 let best=+localStorage.getItem('wwr_best')||0;
 const keys={};let touchDir=0,brakeHold=false,pitch=0,brakeHist=[],brakeUsed=0,vaporLock=false;
 const BRAKE_WINDOW=10,BRAKE_LIMIT=2;     // 過去10秒間のうち上限2秒を超過するとベーパーロック発生
@@ -147,6 +149,13 @@ let charges=3,boostT=0,cdT=0,rechT=0,boost=0;const BOOST_DUR=2,BOOST_CD=4,RECH=1
 const $=id=>document.getElementById(id);
 
 // ===== BGM & SE setup (Blob事前ロード・メモリ保持) =====
+const TOTAL_ASSETS=6; // BGM 3曲 + SE 2個 + 動画 1個
+let loadedAssets=0,assetsReady=false;
+function onAssetLoaded(){
+  loadedAssets++;
+  if(loadedAssets>=TOTAL_ASSETS)assetsReady=true;
+}
+
 function preloadAudio(url, loop=false){
   const a=new Audio();
   a.loop=loop;
@@ -154,7 +163,8 @@ function preloadAudio(url, loop=false){
   fetch(url)
     .then(r=>{if(!r.ok)throw new Error();return r.blob();})
     .then(blob=>{a.src=URL.createObjectURL(blob);a.load();})
-    .catch(()=>{a.src=url;a.load();}); // ローカル直接起動(file://)用フォールバック
+    .catch(()=>{a.src=url;a.load();}) // ローカル直接起動(file://)用フォールバック
+    .finally(onAssetLoaded);
   return a;
 }
 
@@ -425,9 +435,13 @@ function reset(){
   for(const c of cars)scene.remove(c.mesh);
   for(const s of shells)scene.remove(s.m);
   cars=[];shells=[];parts.forEach(p=>scene.remove(p.m));parts=[];parts2=[];$('pops').innerHTML='';popups=[];
+<<<<<<< HEAD
   speed=180;dist=0;score=0;near=0;combo=0;comboT=0;t=0;spawnT=0;shake=0;pitch=0;
   brakeHist=[];brakeUsed=0;vaporLock=false;
   $('bBrake').textContent='BRAKE';$('bBrake').style.opacity='1';
+=======
+  speed=180;dist=0;score=0;_sc=0;near=0;combo=0;comboT=0;t=0;spawnT=0;shake=0;
+>>>>>>> 2d05b2de24e664056e17bdd8e098e2c591b641f0
   playerMesh.visible=true;
   MAXC=CARS[carType].maxc;charges=MAXC;boostT=0;cdT=0;rechT=0;boost=0;
   applyCar();
@@ -578,7 +592,11 @@ function update(dt){
     comboT-=dt;if(comboT<=0)combo=0;
     spawnT-=dt;
     if(spawnT<=0){spawnRow();spawnT=Math.max(0.28,(420/(speed*(1+BOOST_K*boost)+90)))*(0.8+Math.random()*0.5);}
-    score+=speed*(1+BOOST_K*boost)*dt*0.05;
+    // 改ざん検知：表のスコアと裏のスコアにズレがあれば0にリセット
+    if(Math.abs(score-_sc)>1){score=0;_sc=0;}
+    const addS=speed*(1+BOOST_K*boost)*dt*0.05;
+    score+=addS;_sc+=addS;
+
     if(unlockLv<1&&score>=1000){unlockLv=1;localStorage.setItem('wwr_unlock','1');unlockText='NEW CAR UNLOCKED: PHANTOM X !';unlockT=4;}
     if(unlockLv<2&&score>=3000){unlockLv=2;localStorage.setItem('wwr_unlock','2');unlockText='NEW CAR UNLOCKED: TITAN TANK !';unlockT=4;}
     if(unlockLv<3&&score>=4000){unlockLv=3;localStorage.setItem('wwr_unlock','3');unlockText='NEW MACHINE UNLOCKED: NIGHT BIKE !';unlockT=4;}
@@ -648,7 +666,7 @@ function update(dt){
         if(gap<14){
           combo++;comboT=2.2;near++;
           const bonus=Math.floor((14-gap)*10+50)*combo;
-          score+=bonus;
+          score+=bonus;_sc+=bonus;
           const el=document.createElement('div');el.className='pop';
           el.textContent=`NEAR MISS +${bonus}`+(combo>1?` x${combo}`:'');
           $('pops').appendChild(el);
@@ -906,7 +924,13 @@ function render(){
   const panel=$('panel');
   if(state==='title'||(state==='over'&&!cutinOn)){
     panel.style.display='block';
-    if(state==='title')panel.innerHTML=`<h1>WRONG WAY RUSH</h1>対向車をよけ続けろ。速度は上がり続ける<br>ギリギリですれ違うとボーナス!<br>${Math.floor(t*2)%2===0?'<span class="go">タップでスタート</span>':'&nbsp;'}`;
+    if(state==='title'){
+      const pct=Math.min(100,Math.floor(loadedAssets/TOTAL_ASSETS*100));
+      const statusHtml=!assetsReady
+        ?`<div id="loadBarWrap"><div id="loadBar" style="width:${pct}%"></div></div><span style="font-size:15px;color:#ffe066">LOADING... ${pct}%</span>`
+        :(Math.floor(t*2)%2===0?'<span class="go">タップでスタート</span>':'&nbsp;');
+      panel.innerHTML=`<h1>WRONG WAY RUSH</h1>対向車をよけ続けろ。速度は上がり続ける<br>ギリギリですれ違うとボーナス!<br>${statusHtml}`;
+    }
     else panel.innerHTML=`<h1>CRASH!</h1>SCORE ${Math.floor(score)} NEAR MISS ${near}<br>BEST ${best}<br><span class="go">タップでスタート</span>`;
     let subMsg='';
     if(unlockLv===0)subMsg='SCORE 1000 で新車「PHANTOM X」解放!';
@@ -945,11 +969,13 @@ async function preloadVideo(){
       const blob=await r.blob();
       cutin.src=URL.createObjectURL(blob);
       cutin.load();
+      onAssetLoaded();
       return;
     }catch(e){}
   }
   cutin.src=videoList[0];
   cutin.load();
+  onAssetLoaded();
 }
 preloadVideo();
 
@@ -1003,7 +1029,7 @@ cutin.addEventListener('ended',endCutin);
 cutin.addEventListener('error',endCutin);
 cutin.addEventListener('click',endCutin);
 function start(){
-  if(rankOpen)return;
+  if(!assetsReady||rankOpen)return;
   if(cutinOn){endCutin();return;}
   if(state!=='play'){warmupVideo();reset();}
 }
@@ -1109,15 +1135,29 @@ async function fetchRanks() {
   }
 }
 
+// 署名生成関数
+function makeSig(name, s, d, n, tSec) {
+  const str = `${name}_${s}_${d}_${n}_${tSec}_NKTIDKSG_SECRET_10`;
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}
+
 sendBtn.addEventListener('click', async () => {
+  if (Math.abs(score - _sc) > 1) { alert('不正なスコアが検知されました'); return; }
   const name = pName.value.trim() || 'NO NAME';
   localStorage.setItem('wwr_name', name);
   sendBtn.disabled = true;
   sendBtn.textContent = '送信中...';
+  const s = Math.floor(score), d = Math.floor(dist), n = near, tSec = Math.floor(t);
+  const sig = makeSig(name, s, d, n, tSec);
   try {
     const res = await fetch(RANK_API, {
       method: 'POST',
-      body: JSON.stringify({ name, score: Math.floor(score), car: CARS[carType].name })
+      body: JSON.stringify({ name, score: s, dist: d, near: n, time: tSec, car: CARS[carType].name, sig })
     });
     renderRanks(await res.json());
     rankForm.style.display = 'none';
@@ -1126,6 +1166,7 @@ sendBtn.addEventListener('click', async () => {
     sendBtn.disabled = false;
   }
 });
+
 
 requestAnimationFrame(loop);
 </script>
