@@ -149,7 +149,7 @@ let charges=3,boostT=0,cdT=0,rechT=0,boost=0;const BOOST_DUR=2,BOOST_CD=4,RECH=1
 const $=id=>document.getElementById(id);
 
 // ===== BGM & SE setup (Blob事前ロード・メモリ保持) =====
-const TOTAL_ASSETS=6; // BGM 3曲 + SE 2個 + 動画 1個
+const TOTAL_ASSETS=7; // BGM 4曲 + SE 2個 + 動画 1個
 let loadedAssets=0,assetsReady=false;
 function onAssetLoaded(){
   loadedAssets++;
@@ -435,13 +435,10 @@ function reset(){
   for(const c of cars)scene.remove(c.mesh);
   for(const s of shells)scene.remove(s.m);
   cars=[];shells=[];parts.forEach(p=>scene.remove(p.m));parts=[];parts2=[];$('pops').innerHTML='';popups=[];
-<<<<<<< HEAD
-  speed=180;dist=0;score=0;near=0;combo=0;comboT=0;t=0;spawnT=0;shake=0;pitch=0;
+// 【変更後（両方を統合して記号を削除）】
+  speed=180;dist=0;score=0;_sc=0;near=0;combo=0;comboT=0;t=0;spawnT=0;shake=0;pitch=0;
   brakeHist=[];brakeUsed=0;vaporLock=false;
   $('bBrake').textContent='BRAKE';$('bBrake').style.opacity='1';
-=======
-  speed=180;dist=0;score=0;_sc=0;near=0;combo=0;comboT=0;t=0;spawnT=0;shake=0;
->>>>>>> 2d05b2de24e664056e17bdd8e098e2c591b641f0
   playerMesh.visible=true;
   MAXC=CARS[carType].maxc;charges=MAXC;boostT=0;cdT=0;rechT=0;boost=0;
   applyCar();
